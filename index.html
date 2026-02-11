@@ -236,6 +236,20 @@ body{font-family:'Nunito Sans',sans-serif;background:var(--grad);background-atta
 .confirm-msg{color:var(--text);line-height:1.6;margin-bottom:4px;font-size:0.93rem}
 .no-results{color:var(--muted);text-align:center;padding:38px;font-size:0.88rem}
 
+
+/* FAB SPEED DIAL */
+#fab-wrap{position:fixed;bottom:78px;right:18px;z-index:99;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.fab-backdrop{display:none;position:fixed;inset:0;z-index:-1}
+.fab-backdrop.open{display:block}
+.fab-menu{display:flex;flex-direction:column;gap:9px;align-items:flex-end;opacity:0;pointer-events:none;transform:translateY(10px);transition:all .2s}
+.fab-menu.open{opacity:1;pointer-events:all;transform:translateY(0)}
+.fab-opt{background:rgba(10,4,0,0.95);border:1px solid var(--border);border-radius:50px;padding:9px 16px 9px 13px;color:var(--text);font-size:0.88rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Nunito Sans',sans-serif;white-space:nowrap;backdrop-filter:blur(10px);transition:all .2s;box-shadow:0 3px 14px rgba(0,0,0,0.4)}
+.fab-opt:hover{background:var(--warm);color:var(--dark);border-color:var(--warm)}
+.fab.open{transform:rotate(45deg);background:rgba(200,90,60,0.9)}
+
+
+.card-notes{font-size:0.74rem;color:var(--muted);margin-top:5px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
 /* SCROLLBAR */
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -346,11 +360,19 @@ body{font-family:'Nunito Sans',sans-serif;background:var(--grad);background-atta
 
   <div class="bnav">
     <button class="nbtn active" id="nav-planner" onclick="switchTab('planner')"><div class="nico">📅</div><span class="nlbl">Planner</span></button>
-    <button class="nbtn" id="nav-nighttime" onclick="switchTab('nighttime')"><div class="nico">🌙</div><span class="nlbl">Night Shows</span></button>
+    <button class="nbtn" id="nav-nighttime" onclick="switchTab('nighttime')"><div class="nico">🌙</div><span class="nlbl">Fest by Nite</span></button>
     <button class="nbtn" id="nav-jazzfest" onclick="switchTab('jazzfest')"><div class="nico">🎪</div><span class="nlbl">Jazz Fest</span></button>
     <button class="nbtn" id="nav-planners" onclick="switchTab('planners')"><div class="nico">👥</div><span class="nlbl">Planners</span></button>
   </div>
-  <button class="fab" id="fab" onclick="openAddModal()">+</button>
+  <div id="fab-wrap">
+  <div class="fab-backdrop" id="fab-backdrop" onclick="closeFabMenu()"></div>
+  <div class="fab-menu" id="fab-menu">
+    <button class="fab-opt" onclick="closeFabMenu();switchTab('nighttime')">🌙<span>Fest by Nite</span></button>
+    <button class="fab-opt" onclick="closeFabMenu();switchTab('jazzfest')">🎪<span>Jazz Fest</span></button>
+    <button class="fab-opt" onclick="closeFabMenu();openAddModal()">✏️<span>Custom Show</span></button>
+  </div>
+  <button class="fab" id="fab" onclick="toggleFabMenu()">+</button>
+</div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -374,6 +396,7 @@ body{font-family:'Nunito Sans',sans-serif;background:var(--grad);background-atta
       <div class="mfg"><label>Card Size</label><select id="em-size"><option value="small">Small</option><option value="medium" selected>Medium</option><option value="large">Large</option></select></div>
     </div>
     <div class="mfg"><label>Description</label><textarea id="em-desc" placeholder="Lineup, details..."></textarea></div>
+    <div class="mfg"><label>Ticket Link</label><input type="url" id="em-ticketurl" placeholder="https://..."></div>
     <div class="mfg"><label>My Notes</label><textarea id="em-notes" placeholder="Personal notes..."></textarea></div>
     <div class="btn-row"><button class="btn-save" onclick="saveEvent()">Save</button><button class="btn-cancel" onclick="closeEditModal()">Cancel</button></div>
     <div style="margin-top:9px;text-align:center" id="del-btn-wrap"><button class="btn-danger" onclick="deleteCurrentEvent()">Delete Show</button></div>
@@ -406,6 +429,9 @@ body{font-family:'Nunito Sans',sans-serif;background:var(--grad);background-atta
     <div id="det-att-wrap" style="display:none;margin-bottom:14px">
       <div class="det-sl">Also Going</div>
       <div class="att-list" id="det-attendees"></div>
+    </div>
+    <div id="det-ticket-wrap" style="display:none;margin-bottom:14px">
+      <a id="det-ticket-link" href="#" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,var(--warm),var(--golden));color:var(--dark);font-weight:800;font-size:0.88rem;padding:10px 18px;border-radius:10px;text-decoration:none">🎟 Buy Tickets</a>
     </div>
     <div>
       <div class="det-sl">My Notes</div>
@@ -899,7 +925,7 @@ function switchTab(tab) {
     const nb = document.getElementById('nav-' + t);
     if (nb) nb.classList.toggle('active', t === tab);
   });
-  document.getElementById('fab').style.display = tab === 'planner' ? 'flex' : 'none';
+  document.getElementById('fab-wrap').style.display = tab === 'planner' ? 'flex' : 'none';
   if (tab === 'nighttime') renderNighttimeLib();
   else if (tab === 'jazzfest') renderJazzFestLib();
   else if (tab === 'planners') { renderPlannersList(); renderPendingInvites(); }
@@ -984,6 +1010,10 @@ function openDetailModal(dk, sk, idx) {
   else dw.style.display = 'none';
   document.getElementById('det-tickets').value = evt.ticketStatus || 'none';
   document.getElementById('det-notes').value = evt.notes || '';
+  const tw = document.getElementById('det-ticket-wrap');
+  const tl = document.getElementById('det-ticket-link');
+  if (evt.ticketUrl) { tl.href = evt.ticketUrl; tw.style.display = 'block'; }
+  else tw.style.display = 'none';
   const aw = document.getElementById('det-att-wrap');
   const al = document.getElementById('det-attendees');
   al.innerHTML = '';
@@ -1034,7 +1064,7 @@ function openAddModal(dk, sk) {
   isAddMode = true;
   editingEvent = { dk: dk||'thursday', sk: sk||'postfest' };
   document.getElementById('em-title').textContent = 'Add Show';
-  ['em-name','em-venue','em-door','em-show','em-desc','em-notes'].forEach(id => document.getElementById(id).value = '');
+  ['em-name','em-venue','em-door','em-show','em-desc','em-notes','em-ticketurl'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('em-day').value = dk||'thursday';
   document.getElementById('em-section').value = sk||'postfest';
   document.getElementById('em-tickets').value = 'none';
@@ -1058,6 +1088,7 @@ function openEditModal(evt, dk, sk) {
   document.getElementById('em-size').value = evt.cardSize || 'medium';
   document.getElementById('em-desc').value = evt.description || '';
   document.getElementById('em-notes').value = evt.notes || '';
+  document.getElementById('em-ticketurl').value = evt.ticketUrl || '';
   document.getElementById('del-btn-wrap').style.display = 'block';
   document.getElementById('edit-modal').classList.add('active');
 }
@@ -1077,7 +1108,8 @@ function saveEvent() {
     ticketStatus: document.getElementById('em-tickets').value,
     cardSize: document.getElementById('em-size').value,
     description: document.getElementById('em-desc').value.trim(),
-    notes: document.getElementById('em-notes').value.trim()
+    notes: document.getElementById('em-notes').value.trim(),
+    ticketUrl: document.getElementById('em-ticketurl').value.trim()
   };
   if (isAddMode) {
     if (!scheduleData[dk].events[sk]) scheduleData[dk].events[sk] = [];
@@ -1168,7 +1200,7 @@ function openLibModal(venueName, idx, type) {
   if (currentPlannerRole === 'viewer') { showToast('View-only access'); return; }
   const venue = nighttimeLibrary[venueName];
   const show = venue.shows[idx];
-  selectedLibShow = { name: show.name, venue: venueName + ' (' + venue.address + ')', doorTime: show.doorTime, showTime: show.showTime, description: show.notes, notes: '', suggestedDay: show.day, cardSize: 'medium' };
+  selectedLibShow = { name: show.name, venue: venueName + ' (' + venue.address + ')', doorTime: show.doorTime, showTime: show.showTime, description: show.notes, notes: '', suggestedDay: show.day, cardSize: 'medium', ticketUrl: show.ticketUrl||'' };
   const isLate = show.showTime && (show.showTime.includes('am') || parseInt(show.showTime) >= 12);
   document.getElementById('lib-day').value = show.day;
   document.getElementById('lib-section').value = isLate ? 'latenight' : 'postfest';
@@ -1181,7 +1213,7 @@ function confirmAddFromLib() {
   if (!selectedLibShow) return;
   const dk = document.getElementById('lib-day').value;
   const sk = document.getElementById('lib-section').value;
-  const ne = { id: dk + '-' + Date.now(), name: selectedLibShow.name, venue: selectedLibShow.venue, doorTime: selectedLibShow.doorTime, showTime: selectedLibShow.showTime, ticketStatus: 'none', cardSize: selectedLibShow.cardSize||'medium', description: selectedLibShow.description||'', notes:'' };
+  const ne = { id: dk + '-' + Date.now(), name: selectedLibShow.name, venue: selectedLibShow.venue, doorTime: selectedLibShow.doorTime, showTime: selectedLibShow.showTime, ticketStatus: 'none', cardSize: selectedLibShow.cardSize||'medium', description: selectedLibShow.description||'', notes:'', ticketUrl: selectedLibShow.ticketUrl||'' };
   if (!scheduleData[dk].events[sk]) scheduleData[dk].events[sk] = [];
   scheduleData[dk].events[sk].push(ne);
   closeLibModal();
@@ -1268,7 +1300,7 @@ function renderJazzFestLib() {
   }
   c.innerHTML = '';
   let found = false;
-  const colors = { tier1:'var(--golden)', tier2:'var(--warm)', tier3:'var(--text)' };
+  const colors = { tier1:'var(--text)', tier2:'var(--text)', tier3:'var(--text)' };
   Object.keys(jazzFestLibrary).forEach(dn => {
     const dd = jazzFestLibrary[dn];
     if (jfFilter !== 'all' && dd.dayKey !== jfFilter) return;
@@ -1315,6 +1347,22 @@ function showToast(msg) {
   toastTimeout = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+
+function toggleFabMenu() {
+  const menu = document.getElementById('fab-menu');
+  const fab = document.getElementById('fab');
+  const backdrop = document.getElementById('fab-backdrop');
+  const isOpen = menu.classList.contains('open');
+  menu.classList.toggle('open', !isOpen);
+  fab.classList.toggle('open', !isOpen);
+  backdrop.classList.toggle('open', !isOpen);
+}
+function closeFabMenu() {
+  document.getElementById('fab-menu').classList.remove('open');
+  document.getElementById('fab').classList.remove('open');
+  document.getElementById('fab-backdrop').classList.remove('open');
+}
+
 // Search bars
 document.getElementById('nt-search').addEventListener('input', e => {
   ntSearch = e.target.value.toLowerCase();
@@ -1347,60 +1395,106 @@ document.getElementById('jf-clear').addEventListener('click', () => {
 // ============ NIGHTTIME LIBRARY DATA ============
 const nighttimeLibrary = {
   "Saenger Theatre": { address: "111 Canal St.", shows: [
-    { name: "Wilco", day: "thursday", doorTime: "", showTime: "9:00pm", notes: "'An Evening With Wilco' - two full sets. Tickets from $60" },
-    { name: "Wilco", day: "friday", doorTime: "", showTime: "9:00pm", notes: "'An Evening With Wilco' - two full sets. Tickets from $60" }
+    { name: "Wilco", day: "wednesday", doorTime: "", showTime: "9:00pm", notes: "'An Evening With Wilco' - two full sets", ticketUrl: "https://us.atgtickets.com/events/wilco/saenger-theatre/" },
+    { name: "Wilco", day: "thursday", doorTime: "", showTime: "9:00pm", notes: "'An Evening With Wilco' - two full sets", ticketUrl: "https://us.atgtickets.com/events/wilco/saenger-theatre/" },
+    { name: "Wilco", day: "friday", doorTime: "", showTime: "9:00pm", notes: "'An Evening With Wilco' - two full sets", ticketUrl: "https://us.atgtickets.com/events/wilco/saenger-theatre/" },
+    { name: "The Meters", day: "saturday", doorTime: "", showTime: "8:00pm", notes: "SOLD OUT — Leo Nocentelli, George Porter Jr., Zigaboo Modeliste, Cyril Neville, Ivan Neville", ticketUrl: "https://us.atgtickets.com/events/the-meters/saenger-theatre/" }
   ]},
-  "Tipitina's": { address: "501 Napoleon Ave.", shows: [
-    { name: "The Iceman Special", day: "thursday", doorTime: "1:00am", showTime: "2:00am", notes: "Tickets $34" },
-    { name: "Galactic", day: "friday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $70" },
-    { name: "Neal Francis (Late Night)", day: "friday", doorTime: "1:00am", showTime: "2:00am", notes: "Tickets $58" },
-    { name: "Neal Francis (Evening)", day: "saturday", doorTime: "8:00pm", showTime: "9:00pm", notes: "w/ The Breaks. Tickets $58" },
-    { name: "FiyaPowa", day: "saturday", doorTime: "1:00am", showTime: "2:00am", notes: "Tickets $42" },
-    { name: "Dumpstaphunk", day: "sunday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $47" }
-  ]},
-  "Fillmore New Orleans": { address: "1700 Tchoupitoulas St.", shows: [
-    { name: "Joe Russo's Almost Dead (JRAD)", day: "saturday", doorTime: "8:00pm", showTime: "9:00pm", notes: "One night only. Joe Russo, Marco Benevento, Dave Dreiwitz, Tom Hamilton, Scott Metzger" }
-  ]},
-  "Civic Theatre": { address: "510 O'Keefe Ave.", shows: [
-    { name: "Anders Osborne Birthday Bash", day: "saturday", doorTime: "8:00pm", showTime: "9:00pm", notes: "With Dave Malone, Jackie Greene, Lindsay Lou, Rebirth Brass Band" }
+  "Fillmore New Orleans": { address: "6 Canal St.", shows: [
+    { name: "Karl Denson's Tiny Universe", day: "thursday", doorTime: "7:00pm", showTime: "8:00pm", notes: "Jimmy Cliff Celebration w/ Bernard Fowler & La Lom", ticketUrl: "https://www.thefillmorenola.com/shows" },
+    { name: "Joe Russo's Almost Dead (JRAD)", day: "saturday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Joe Russo, Marco Benevento, Dave Dreiwitz, Tom Hamilton, Scott Metzger", ticketUrl: "https://www.thefillmorenola.com/shows" },
+    { name: "Ari Lennox", day: "sunday", doorTime: "8:00pm", showTime: "9:00pm", notes: "", ticketUrl: "https://www.thefillmorenola.com/shows" }
   ]},
   "Orpheum Theatre": { address: "129 Roosevelt Way", shows: [
-    { name: "The Marcus King Band", day: "saturday", doorTime: "", showTime: "9:00pm", notes: "Waltz Across Texas" }
+    { name: "Warren Haynes - Dreams & Songs", day: "thursday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Symphonic Experience with Louisiana Philharmonic", ticketUrl: "https://orpheumnola.com/home/live-entertainment/" },
+    { name: "Gov't Mule - Jazz AfterDark", day: "friday", doorTime: "", showTime: "9:00pm", notes: "", ticketUrl: "https://orpheumnola.com/home/live-entertainment/" },
+    { name: "The Marcus King Band", day: "saturday", doorTime: "", showTime: "9:00pm", notes: "Waltz Across Texas", ticketUrl: "https://orpheumnola.com/home/live-entertainment/" }
   ]},
-  "The Joy Theatre": { address: "1200 Canal St.", shows: [
-    { name: "Grahame Lesh & Friends", day: "wednesday", doorTime: "", showTime: "7:30pm", notes: "ft. Ivan Neville, Jake Brownstein, Cory Henry" }
+  "The Joy Theater": { address: "1200 Canal St.", shows: [
+    { name: "Grahame Lesh & Friends", day: "wednesday", doorTime: "", showTime: "7:30pm", notes: "ft. Ivan Neville, Jake Brownstein, Cory Henry", ticketUrl: "https://thejoytheater.com/shows/" },
+    { name: "Lettuce - RAGE!FEST", day: "thursday", doorTime: "9:00pm", showTime: "10:00pm", notes: "", ticketUrl: "https://thejoytheater.com/shows/" },
+    { name: "The Heavyweights", day: "friday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Cory Henry, Eric Krasno, Robert Sput Searight w/ Oteil Burbridge", ticketUrl: "https://thejoytheater.com/shows/" }
   ]},
-  "Chickie Wah Wah": { address: "2828 Canal St.", shows: [
-    { name: "Magoo", day: "thursday", doorTime: "12:30am", showTime: "1:00am", notes: "Tickets $34" }
+  "Civic Theatre": { address: "510 O'Keefe Ave.", shows: [
+    { name: "Daniel Donato's Cosmic NOLA", day: "thursday", doorTime: "9:00pm", showTime: "10:00pm", notes: "w/ George Porter Jr., Al Schnier, Kanika Moore", ticketUrl: "https://civicnola.com/calendar/" },
+    { name: "Anders Osborne's NOLA Birthday Bash", day: "saturday", doorTime: "8:00pm", showTime: "9:00pm", notes: "60th Birthday! w/ Rebirth Brass Band, Dave Malone, Jackie Greene, Lindsay Lou", ticketUrl: "https://civicnola.com/calendar/" }
   ]},
-  "Howlin' Wolf": { address: "907 S. Peters St.", shows: [
-    { name: "Karl Denson's Tiny Universe", day: "thursday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $30" },
-    { name: "Dirty Dozen Brass Band", day: "friday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $35" },
-    { name: "Stanton Moore Trio", day: "saturday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $35" },
-    { name: "Trombone Shorty All-Stars", day: "sunday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $45" }
+  "Tipitina's": { address: "501 Napoleon Avenue", shows: [
+    { name: "Daze Between Band", day: "wednesday", doorTime: "", showTime: "10:00pm", notes: "Eric Krasno, George Porter Jr., Ivan Neville, Oteil Burbridge, Cory Henry, Tony Hall, Raymond Weber", ticketUrl: "https://tipitinas.com/calendar/" },
+    { name: "The Iceman Special", day: "thursday", doorTime: "1:00am", showTime: "2:00am", notes: "Late Thu / Early Fri", ticketUrl: "https://tipitinas.com/calendar/" },
+    { name: "Galactic", day: "friday", doorTime: "8:00pm", showTime: "9:00pm", notes: "", ticketUrl: "https://tipitinas.com/calendar/" },
+    { name: "Neal Francis (Late Night)", day: "friday", doorTime: "1:00am", showTime: "2:00am", notes: "Late Fri / Early Sat", ticketUrl: "https://tipitinas.com/calendar/" },
+    { name: "Neal Francis (Evening)", day: "saturday", doorTime: "8:00pm", showTime: "9:00pm", notes: "w/ The Breaks (Eddie Roberts, Robert Walter & Stanton Moore)", ticketUrl: "https://tipitinas.com/calendar/" },
+    { name: "FiyaPowa!", day: "saturday", doorTime: "1:00am", showTime: "2:00am", notes: "Featuring Members of Dumpstaphunk & Galactic. Late Sat / Early Sun", ticketUrl: "https://tipitinas.com/calendar/" },
+    { name: "Dumpstaphunk", day: "sunday", doorTime: "8:00pm", showTime: "9:00pm", notes: "", ticketUrl: "https://tipitinas.com/calendar/" }
+  ]},
+  "Chickie Wah Wah": { address: "2828 Canal Street", shows: [
+    { name: "Jon Cleary and the Absolute Monster Gentlemen", day: "thursday", doorTime: "7:00pm", showTime: "8:00pm", notes: "", ticketUrl: "https://chickiewahwah.com/calendar/" },
+    { name: "Magoo", day: "thursday", doorTime: "12:30am", showTime: "1:00am", notes: "Late Thu / Early Fri", ticketUrl: "https://chickiewahwah.com/calendar/" },
+    { name: "Dan Penn & Spooner Oldham", day: "friday", doorTime: "7:00pm", showTime: "8:00pm", notes: "", ticketUrl: "https://chickiewahwah.com/calendar/" },
+    { name: "Shantytown Underground", day: "friday", doorTime: "12:30am", showTime: "1:00am", notes: "w/ special guests. Late Fri / Early Sat", ticketUrl: "https://chickiewahwah.com/calendar/" },
+    { name: "Terence Blanchard", day: "saturday", doorTime: "7:00pm", showTime: "8:00pm", notes: "w/ special guests", ticketUrl: "https://chickiewahwah.com/calendar/" },
+    { name: "Durand Jones & Friends", day: "saturday", doorTime: "10:00pm", showTime: "10:30pm", notes: "", ticketUrl: "https://chickiewahwah.com/calendar/" },
+    { name: "Papa Mali's Birthday Bash", day: "sunday", doorTime: "10:00pm", showTime: "10:30pm", notes: "w/ Wally Ingram - Music of David Lindley", ticketUrl: "https://chickiewahwah.com/calendar/" }
+  ]},
+  "Republic New Orleans": { address: "828 South Peters St.", shows: [
+    { name: "Dead Feat", day: "thursday", doorTime: "9:00pm", showTime: "10:00pm", notes: "Anders Osborne, Fred Tackett, Jackie Greene & more", ticketUrl: "https://republicnola.com" },
+    { name: "Earth Wind & Power", day: "friday", doorTime: "9:00pm", showTime: "10:00pm", notes: "The Nth Power w/ Mark Lettieri, Skerik, Kanika Moore & more", ticketUrl: "https://republicnola.com" },
+    { name: "STEELY DANth", day: "saturday", doorTime: "9:00pm", showTime: "10:00pm", notes: "The Nth Power w/ Cory Henry, Mark Lettieri, Peter Levin & more", ticketUrl: "https://republicnola.com" }
+  ]},
+  "Cafe Istanbul": { address: "2372 St. Claude Ave.", shows: [
+    { name: "Wil Blades & Friends", day: "thursday", doorTime: "8:30pm", showTime: "9:00pm", notes: "w/ Donald Harrison Jr., Otis McDonald, Bill Summers", ticketUrl: "" },
+    { name: "Melvin Seals & JGB", day: "friday", doorTime: "9:00pm", showTime: "9:30pm", notes: "w/ John Kadlecik, special guest Donald Harrison", ticketUrl: "" },
+    { name: "Melvin Seals & JGB", day: "saturday", doorTime: "8:30pm", showTime: "9:00pm", notes: "w/ special guest Robert Randolph", ticketUrl: "" },
+    { name: "Pimps of Joytime", day: "saturday", doorTime: "1:00am", showTime: "1:30am", notes: "Late night show", ticketUrl: "" },
+    { name: "GARAJ MAHAL", day: "sunday", doorTime: "8:30pm", showTime: "9:00pm", notes: "Kai Eckhardt, Fareed Haque, Greg Fundis", ticketUrl: "" },
+    { name: "Fareed Haque Trio", day: "sunday", doorTime: "11:30pm", showTime: "12:00am", notes: "w/ Herlin Riley, Mark Brooks", ticketUrl: "" }
+  ]},
+  "House of Blues": { address: "225 Decatur Street", shows: [
+    { name: "Robert Cray Band", day: "friday", doorTime: "8:00pm", showTime: "9:00pm", notes: "", ticketUrl: "" },
+    { name: "Gramatik", day: "saturday", doorTime: "8:00pm", showTime: "9:00pm", notes: "", ticketUrl: "" }
   ]},
   "Rock 'n' Bowl": { address: "3000 S. Carrollton Ave.", shows: [
-    { name: "Tab Benoit", day: "thursday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $25" },
-    { name: "Bobby Rush", day: "friday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $28" },
-    { name: "Walter \"Wolfman\" Washington", day: "saturday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $22" },
-    { name: "Lil Nate & the Zydeco Big Timers", day: "sunday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $20" }
+    { name: "Sonny Landreth", day: "friday", doorTime: "", showTime: "8:30pm", notes: "w/ Dale Gaspard", ticketUrl: "https://www.rocknbowl.com/new-orleans" },
+    { name: "Cowboy Mouth", day: "saturday", doorTime: "", showTime: "8:30pm", notes: "w/ Few Blue", ticketUrl: "https://www.rocknbowl.com/new-orleans" }
+  ]},
+  "New Orleans Jazz & Blues Market": { address: "1436 Oretha Castle Haley Blvd.", shows: [
+    { name: "Sue Foley", day: "thursday", doorTime: "", showTime: "7:30pm", notes: "", ticketUrl: "" },
+    { name: "Scott Sharrard's Endless Road Live", day: "friday", doorTime: "6:00pm", showTime: "8:00pm", notes: "", ticketUrl: "" },
+    { name: "Kenny Garrett (Early)", day: "saturday", doorTime: "", showTime: "7:00pm", notes: "", ticketUrl: "" },
+    { name: "Kenny Garrett (Late)", day: "saturday", doorTime: "", showTime: "9:30pm", notes: "", ticketUrl: "" }
+  ]},
+  "The Broadside": { address: "600 North Broad St.", shows: [
+    { name: "24th Annual Bayou Rendezvous", day: "friday", doorTime: "", showTime: "", notes: "Satisfied Productions Presents", ticketUrl: "" },
+    { name: "Stanton Moore's Festival Finale", day: "sunday", doorTime: "", showTime: "9:00pm", notes: "Stanton Moore Trio + Frequinauts", ticketUrl: "" }
+  ]},
+  "Howlin' Wolf": { address: "907 S. Peters Street", shows: [
+    { name: "Hot 8 Brass Band", day: "sunday", doorTime: "", showTime: "10:30pm", notes: "Grammy Winning", ticketUrl: "https://www.thehowlinwolf.com/phone/calendar.html" }
+  ]},
+  "Howlin' Wolf - The Den": { address: "907 S. Peters Street", shows: [
+    { name: "Marvelous Funkshun", day: "thursday", doorTime: "9:00pm", showTime: "10:00pm", notes: "w/ Jon Gross, Joe Marcinek, Rebekah Todd", ticketUrl: "https://www.thehowlinwolf.com/phone/calendar.html" }
+  ]},
+  "Marigny Opera House": { address: "725 Saint Ferdinand St.", shows: [
+    { name: "Maggie Koerner & friends", day: "friday", doorTime: "", showTime: "7:30pm", notes: "", ticketUrl: "" }
+  ]},
+  "Bacchanal": { address: "600 Poland Avenue", shows: [
+    { name: "Willie Green", day: "friday", doorTime: "", showTime: "7:00pm", notes: "", ticketUrl: "" }
   ]},
   "Maple Leaf Bar": { address: "8316 Oak St.", shows: [
-    { name: "Rebirth Brass Band", day: "thursday", doorTime: "10:00pm", showTime: "11:00pm", notes: "Tickets $15 - legendary Tuesday residency moved for Jazz Fest" },
-    { name: "Papa Grows Funk", day: "friday", doorTime: "9:00pm", showTime: "10:00pm", notes: "Tickets $15" },
-    { name: "John Cleary & the Absolute Monster Gentlemen", day: "saturday", doorTime: "9:00pm", showTime: "10:00pm", notes: "Tickets $15" }
+    { name: "Rebirth Brass Band", day: "thursday", doorTime: "10:00pm", showTime: "11:00pm", notes: "Legendary weekly residency", ticketUrl: "https://www.mapleleafbar.com/leaf" }
+  ]},
+  "The Spotted Cat": { address: "623 Frenchmen Street", shows: [
+    { name: "Jumbo Shrimp Jazz Band", day: "thursday", doorTime: "", showTime: "10:00pm", notes: "No cover", ticketUrl: "" },
+    { name: "New Orleans Cottonmouth Kings", day: "friday", doorTime: "", showTime: "6:00pm", notes: "No cover", ticketUrl: "" },
+    { name: "James Martin Band", day: "friday", doorTime: "", showTime: "10:00pm", notes: "No cover", ticketUrl: "" },
+    { name: "Treme Brass Band", day: "sunday", doorTime: "", showTime: "6:00pm", notes: "No cover", ticketUrl: "" },
+    { name: "Pat Casey & The New Sound", day: "sunday", doorTime: "", showTime: "9:00pm", notes: "No cover", ticketUrl: "" }
   ]},
   "Preservation Hall": { address: "726 St. Peter St.", shows: [
-    { name: "Preservation Hall Jazz Band", day: "thursday", doorTime: "", showTime: "8:00pm", notes: "Late show $30" },
-    { name: "Preservation Hall Jazz Band", day: "friday", doorTime: "", showTime: "8:00pm", notes: "Late show $30" },
-    { name: "Preservation Hall Jazz Band", day: "saturday", doorTime: "", showTime: "8:00pm", notes: "Late show $30" },
-    { name: "Preservation Hall Jazz Band", day: "sunday", doorTime: "", showTime: "8:00pm", notes: "Late show $30" }
-  ]},
-  "Frenchmen Street (Live)": { address: "Frenchmen St., Marigny", shows: [
-    { name: "Spotted Cat Late Night", day: "thursday", doorTime: "10:00pm", showTime: "11:00pm", notes: "No cover - multiple bands rotating" },
-    { name: "Spotted Cat Late Night", day: "friday", doorTime: "10:00pm", showTime: "11:00pm", notes: "No cover - multiple bands rotating" },
-    { name: "Spotted Cat Late Night", day: "saturday", doorTime: "10:00pm", showTime: "11:00pm", notes: "No cover - multiple bands rotating" },
-    { name: "Spotted Cat Late Night", day: "sunday", doorTime: "10:00pm", showTime: "11:00pm", notes: "No cover - multiple bands rotating" }
+    { name: "Preservation Hall Jazz Band", day: "thursday", doorTime: "", showTime: "8:00pm", notes: "Late show $30", ticketUrl: "https://www.preservationhall.com" },
+    { name: "Preservation Hall Jazz Band", day: "friday", doorTime: "", showTime: "8:00pm", notes: "Late show $30", ticketUrl: "https://www.preservationhall.com" },
+    { name: "Preservation Hall Jazz Band", day: "saturday", doorTime: "", showTime: "8:00pm", notes: "Late show $30", ticketUrl: "https://www.preservationhall.com" },
+    { name: "Preservation Hall Jazz Band", day: "sunday", doorTime: "", showTime: "8:00pm", notes: "Late show $30", ticketUrl: "https://www.preservationhall.com" }
   ]}
 };
 
@@ -1408,49 +1502,85 @@ const nighttimeLibrary = {
 const jazzFestLibrary = {
   "Thursday, April 30": { dayKey: "thursday", artists: [
     { name: "Widespread Panic", tier: "tier1" },
-    { name: "Lake Street Dive", tier: "tier2" },
+    { name: "Lake Street Dive", tier: "tier1" },
+    { name: "Leela James", tier: "tier1" },
     { name: "Lettuce", tier: "tier2" },
-    { name: "Robert Plant", tier: "tier1" },
-    { name: "Preservation Hall Jazz Band", tier: "tier2" },
-    { name: "Tank and the Bangas", tier: "tier2" },
-    { name: "Galactic", tier: "tier2" },
-    { name: "Irma Thomas", tier: "tier2" },
-    { name: "Los Lobos", tier: "tier2" },
-    { name: "Zigaboo Modeliste", tier: "tier3" }
+    { name: "Alejandro Escovedo", tier: "tier2" },
+    { name: "Fred Wesley and his New JBs", tier: "tier2" },
+    { name: "Grace Bowers", tier: "tier2" },
+    { name: "Sweet Crude", tier: "tier3" },
+    { name: "Buckwheat Zydeco Jr.", tier: "tier3" },
+    { name: "Zigaboo Modeliste Funk Revue", tier: "tier3" },
+    { name: "Terrance Simien & the Zydeco Experience", tier: "tier3" },
+    { name: "Batiste Brothers Band", tier: "tier3" },
+    { name: "Isaiah Collier", tier: "tier3" },
+    { name: "Charmaine Neville", tier: "tier3" },
+    { name: "The Iceman Special", tier: "tier3" },
+    { name: "John Papa Gros", tier: "tier3" },
+    { name: "The Iguanas", tier: "tier3" },
+    { name: "Hans Williams", tier: "tier3" }
   ]},
   "Friday, May 1": { dayKey: "friday", artists: [
+    { name: "Lainey Wilson", tier: "tier1" },
     { name: "The Black Keys", tier: "tier1" },
     { name: "Ziggy Marley", tier: "tier1" },
     { name: "Rickie Lee Jones", tier: "tier2" },
-    { name: "Lainey Wilson", tier: "tier1" },
-    { name: "California Honeydrops", tier: "tier2" },
-    { name: "Tuba Skinny", tier: "tier2" },
-    { name: "Anders Osborne", tier: "tier2" },
+    { name: "Dragon Smoke", tier: "tier2" },
+    { name: "Marc Broussard", tier: "tier2" },
+    { name: "Original Koffee", tier: "tier2" },
+    { name: "The California Honeydrops", tier: "tier3" },
+    { name: "Terence Blanchard + Ravi Coltrane", tier: "tier3" },
+    { name: "BeauSoleil avec Michael Doucet", tier: "tier3" },
+    { name: "Tab Benoit", tier: "tier3" },
     { name: "Bonerama", tier: "tier3" },
-    { name: "Ivan Neville's Dumpstaphunk", tier: "tier2" }
+    { name: "Hot 8 Brass Band", tier: "tier3" },
+    { name: "The Skatalites", tier: "tier3" },
+    { name: "Sue Foley", tier: "tier3" },
+    { name: "Gal Holiday & The Honky Tonk Revue", tier: "tier3" },
+    { name: "Amanda Shaw and The Cute Guys", tier: "tier3" },
+    { name: "Geno Delafose & French Rockin' Boogie", tier: "tier3" }
   ]},
   "Saturday, May 2": { dayKey: "saturday", artists: [
     { name: "Eagles", tier: "tier1" },
     { name: "Alabama Shakes", tier: "tier1" },
     { name: "T-Pain", tier: "tier1" },
     { name: "Dianne Reeves", tier: "tier2" },
+    { name: "Big Freedia", tier: "tier2" },
     { name: "Dumpstaphunk", tier: "tier2" },
     { name: "Little Feat", tier: "tier2" },
     { name: "Sierra Hull", tier: "tier2" },
-    { name: "Cimafunk", tier: "tier2" },
-    { name: "Big Freedia", tier: "tier2" },
-    { name: "Theresa Andersson", tier: "tier3" }
+    { name: "The Soul Rebels", tier: "tier3" },
+    { name: "Anders Osborne", tier: "tier3" },
+    { name: "Corey Henry & The Treme Funktet", tier: "tier3" },
+    { name: "Leo Nocentelli of The Meters", tier: "tier3" },
+    { name: "C.J. Chenier & the Red Hot Louisiana Band", tier: "tier3" },
+    { name: "Leyla McCalla", tier: "tier3" },
+    { name: "Wayne Toups", tier: "tier3" },
+    { name: "The Skatalites", tier: "tier3" },
+    { name: "Honey Island Swamp Band", tier: "tier3" },
+    { name: "Susan Cowsill", tier: "tier3" },
+    { name: "Savoy Family Cajun Band", tier: "tier3" }
   ]},
   "Sunday, May 3": { dayKey: "sunday", artists: [
-    { name: "Tedeschi Trucks Band", tier: "tier1" },
     { name: "Teddy Swims", tier: "tier1" },
     { name: "Earth, Wind & Fire", tier: "tier1" },
-    { name: "Herbie Hancock", tier: "tier1" },
+    { name: "Tedeschi Trucks Band", tier: "tier1" },
+    { name: "Herbie Hancock", tier: "tier2" },
     { name: "Trombone Shorty & Orleans Avenue", tier: "tier2" },
-    { name: "Rebirth Brass Band", tier: "tier2" },
-    { name: "Bon Jovi", tier: "tier1" },
-    { name: "The Revivalists", tier: "tier2" },
-    { name: "Cyril Neville", tier: "tier3" }
+    { name: "Mavis Staples", tier: "tier2" },
+    { name: "Galactic featuring Jelly Joseph", tier: "tier3" },
+    { name: "The Radiators", tier: "tier3" },
+    { name: "Rebirth Brass Band", tier: "tier3" },
+    { name: "George Porter Jr & Runnin' Pardners", tier: "tier3" },
+    { name: "Jon Cleary & the Absolute Monster Gentlemen", tier: "tier3" },
+    { name: "Steve Earle featuring Anders Osborne", tier: "tier3" },
+    { name: "Kermit Ruffins' Tribute to Louis Armstrong", tier: "tier3" },
+    { name: "Deacon John", tier: "tier3" },
+    { name: "Shamarr Allen", tier: "tier3" },
+    { name: "Lil' Nathan & the Zydeco Big Timers", tier: "tier3" },
+    { name: "Jason Marsalis", tier: "tier3" },
+    { name: "Doreen's Jazz New Orleans", tier: "tier3" },
+    { name: "Steve Riley & the Mamou Playboys", tier: "tier3" }
   ]}
 };
 </script>
