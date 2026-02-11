@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jazz Fest Archive</title>
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Nunito+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<!-- Firebase Storage disabled - requires Blaze plan -->
+<meta name="theme-color" content="#1a0a00">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Jazz Fest Archive">
+<style>
+:root {
+  --red: #D84A3C; --orange: #C85A3C; --warm: #E07A3C; --golden: #F5A944;
+  --yellow: #F4E87C; --teal: #2DB8A8; --dark: #0D0500; --dark2: #1a0a00;
+  --card: rgba(15,6,0,0.85); --border: rgba(200,90,60,0.25);
+  --text: #F5ECD7; --muted: rgba(245,236,215,0.55);
+  --grad: linear-gradient(135deg,#3D1200 0%,#8B2500 25%,#C85A3C 50%,#E8A840 75%,#F4E87C 100%);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{overflow-x:hidden;height:100%}
+body{font-family:'Nunito Sans',sans-serif;background:var(--grad);background-attachment:fixed;color:var(--text);min-height:100vh}
+
+/* LOADING */
+#loading-screen{position:fixed;inset:0;background:var(--grad);background-attachment:fixed;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999}
+.loading-logo{font-family:'Alfa Slab One',serif;font-size:2.5rem;background:linear-gradient(135deg,var(--golden),var(--warm));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:2px;margin-bottom:24px}
+.loading-spinner{width:36px;height:36px;border:3px solid rgba(245,169,68,0.2);border-top-color:var(--golden);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* AUTH */
+#auth-screen{min-height:100vh;display:none;align-items:center;justify-content:center;padding:20px}
+.auth-box{background:rgba(10,4,0,0.93);border:1px solid var(--border);border-radius:20px;padding:44px 38px;width:100%;max-width:420px;backdrop-filter:blur(20px)}
+.auth-logo{text-align:center;margin-bottom:30px}
+.auth-logo h1{font-family:'Alfa Slab One',serif;font-size:2rem;background:linear-gradient(135deg,var(--golden),var(--warm));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:2px}
+.auth-logo p{color:var(--muted);font-size:0.82rem;margin-top:4px;letter-spacing:3px;text-transform:uppercase}
+.auth-tabs{display:flex;background:rgba(255,255,255,0.05);border-radius:10px;padding:4px;margin-bottom:24px}
+.auth-tab{flex:1;padding:10px;text-align:center;border-radius:8px;cursor:pointer;font-weight:700;font-size:0.9rem;color:var(--muted);transition:all .2s;border:none;background:none;font-family:'Nunito Sans',sans-serif}
+.auth-tab.active{background:var(--warm);color:var(--dark)}
+.aform{display:flex;flex-direction:column;gap:13px}
+.fg label{display:block;font-size:0.75rem;font-weight:800;color:var(--golden);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.fg input{width:100%;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:1rem;font-family:'Nunito Sans',sans-serif;transition:border-color .2s}
+.fg input:focus{outline:none;border-color:var(--warm)}
+.av-row{display:flex;align-items:center;gap:14px}
+.av-circle{width:62px;height:62px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:900;color:var(--dark);overflow:hidden;flex-shrink:0;cursor:pointer;border:2px solid var(--border)}
+.av-circle img{width:100%;height:100%;object-fit:cover}
+.av-text{font-size:0.84rem;color:var(--muted);line-height:1.4}
+.av-text span{color:var(--golden);cursor:pointer;text-decoration:underline}
+.btn-main{background:linear-gradient(135deg,var(--warm),var(--golden));color:var(--dark);border:none;border-radius:12px;padding:13px;font-size:1rem;font-weight:800;cursor:pointer;transition:all .2s;font-family:'Nunito Sans',sans-serif}
+.btn-main:hover{transform:translateY(-1px);filter:brightness(1.05)}
+.btn-main:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:0.8rem}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.btn-google{background:rgba(255,255,255,0.08);border:1px solid var(--border);border-radius:12px;padding:11px;color:var(--text);font-size:0.95rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all .2s;font-family:'Nunito Sans',sans-serif;width:100%}
+.btn-google:hover{background:rgba(255,255,255,0.12)}
+.google-icon{width:20px;height:20px}
+.auth-error{background:rgba(216,74,60,0.15);border:1px solid rgba(216,74,60,0.4);border-radius:8px;padding:10px 14px;font-size:0.85rem;color:#ff8a80;display:none;margin-bottom:4px}
+
+/* APP */
+#app-screen{display:none;min-height:100vh;padding-bottom:72px}
+.app-header{background:rgba(10,4,0,0.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 18px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.app-logo{font-family:'Alfa Slab One',serif;font-size:1.2rem;background:linear-gradient(135deg,var(--golden),var(--warm));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:1px}
+.hright{display:flex;align-items:center;gap:10px}
+.planner-sel{background:rgba(255,255,255,0.08);border:1px solid var(--border);border-radius:8px;padding:6px 11px;color:var(--text);font-size:0.82rem;font-weight:700;cursor:pointer;font-family:'Nunito Sans',sans-serif;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.uav{width:34px;height:34px;border-radius:50%;background:var(--warm);border:2px solid var(--golden);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.82rem;color:var(--dark);cursor:pointer;overflow:hidden;flex-shrink:0}
+.uav img{width:100%;height:100%;object-fit:cover}
+
+/* BOTTOM NAV */
+.bnav{position:fixed;bottom:0;left:0;right:0;height:64px;background:rgba(6,2,0,0.97);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;z-index:100;padding:0 8px}
+.nbtn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 14px;border-radius:12px;cursor:pointer;border:none;background:none;color:var(--muted);transition:all .2s;font-family:'Nunito Sans',sans-serif;flex:1}
+.nbtn.active{color:var(--golden)}
+.nbtn.active .nico{background:rgba(245,169,68,0.15)}
+.nico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;transition:all .2s}
+.nlbl{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px}
+
+/* TABS */
+.tab-content{display:none;padding:18px;max-width:920px;margin:0 auto}
+.tab-content.active{display:block}
+
+/* DAY SECTIONS */
+.day-sec{background:rgba(10,4,0,0.8);border:1px solid var(--border);border-radius:16px;margin-bottom:18px;overflow:hidden;backdrop-filter:blur(10px)}
+.day-hdr{padding:15px 18px 11px;border-bottom:1px solid var(--border)}
+.day-title{font-family:'Alfa Slab One',serif;font-size:1.05rem;color:var(--warm);letter-spacing:1px;text-transform:uppercase}
+.day-sub{font-size:0.78rem;color:var(--muted);margin-top:2px}
+.sec-grp{padding:11px 18px;border-bottom:1px solid rgba(200,90,60,0.1)}
+.sec-grp:last-child{border-bottom:none}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.sec-title{font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:var(--golden)}
+.add-card-btn{background:rgba(255,255,255,0.07);border:1px dashed rgba(255,255,255,0.2);border-radius:10px;padding:5px 12px;cursor:pointer;color:var(--muted);font-size:0.8rem;font-weight:700;transition:all .2s;font-family:'Nunito Sans',sans-serif}
+.add-card-btn:hover{border-color:var(--warm);color:var(--text)}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px}
+
+/* CARDS */
+.card{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-left:3px solid var(--border);border-radius:11px;padding:13px;cursor:pointer;transition:all .2s;position:relative}
+.card:hover{transform:translateY(-2px);border-color:var(--warm);background:rgba(255,255,255,0.07)}
+.card.has-tickets{border-left-color:var(--teal)}
+.card.planning{border-left-color:var(--golden)}
+.card.maybe{border-left-color:rgba(255,255,255,0.3)}
+.card.size-large{grid-column:span 2}
+.card-name{font-weight:800;font-size:0.93rem;line-height:1.3;margin-bottom:5px}
+.card-venue{font-size:0.76rem;color:var(--muted);margin-bottom:3px}
+.card-time{font-size:0.76rem;color:var(--muted);margin-top:3px}
+.card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:9px}
+.cbadge{font-size:0.66rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;padding:3px 7px;border-radius:4px}
+.cbadge.tickets{background:var(--teal);color:white}
+.cbadge.planning{background:var(--golden);color:var(--dark)}
+.cbadge.maybe{background:rgba(255,255,255,0.15);color:var(--text)}
+.cavs{display:flex;align-items:center}
+.cav{width:21px;height:21px;border-radius:50%;background:var(--warm);border:2px solid var(--dark);display:flex;align-items:center;justify-content:center;font-size:0.5rem;font-weight:900;color:var(--dark);margin-left:-5px;overflow:hidden;flex-shrink:0}
+.cav:first-child{margin-left:0}
+.cav img{width:100%;height:100%;object-fit:cover}
+
+/* LEGEND */
+.legend{background:rgba(10,4,0,0.7);border:1px solid var(--border);border-radius:11px;padding:12px 16px;margin-bottom:18px;display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:0.78rem}
+.leg-dot{width:9px;height:9px;border-radius:2px}
+.leg-dot.tickets{background:var(--teal)}
+.leg-dot.planning{background:var(--golden)}
+.leg-dot.maybe{background:rgba(255,255,255,0.3)}
+.leg-dot.none{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2)}
+
+/* LIBRARY */
+.controls{background:rgba(10,4,0,0.7);border:1px solid var(--border);border-radius:11px;padding:14px;margin-bottom:18px}
+.search-wrap{position:relative;margin-bottom:11px}
+.search-bar{width:100%;background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:8px;padding:9px 38px 9px 13px;color:var(--text);font-size:0.93rem;font-family:'Nunito Sans',sans-serif}
+.search-bar:focus{outline:none;border-color:var(--warm)}
+.search-clear{position:absolute;right:9px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:21px;height:21px;color:var(--text);font-size:0.75rem;cursor:pointer;display:none;align-items:center;justify-content:center}
+.filters{display:flex;gap:7px;flex-wrap:wrap}
+.filter-btn{background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--text);padding:5px 13px;border-radius:20px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:'Nunito Sans',sans-serif;transition:all .2s}
+.filter-btn.active{background:var(--warm);border-color:var(--warm);color:var(--dark)}
+.venue-sec{background:rgba(10,4,0,0.8);border:1px solid var(--border);border-radius:15px;margin-bottom:14px;overflow:hidden}
+.venue-hdr{padding:13px 16px;border-bottom:1px solid var(--border)}
+.venue-name{font-weight:800;font-size:0.98rem}
+.venue-addr{font-size:0.76rem;color:var(--muted);margin-top:2px}
+.shows-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:9px;padding:13px}
+.show-card{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;padding:11px;cursor:pointer;transition:all .2s;position:relative}
+.show-card:hover{background:rgba(255,255,255,0.08);border-color:var(--warm)}
+.show-card.in-planner{border-color:var(--teal);background:rgba(45,184,168,0.08)}
+.show-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:7px;margin-bottom:7px}
+.show-name{font-weight:800;font-size:0.88rem;line-height:1.3}
+.add-btn{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;color:var(--text);font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
+.add-btn.added{background:var(--teal);color:white}
+.add-btn:hover{background:var(--warm);color:var(--dark)}
+.sdr{font-size:0.76rem;color:var(--muted);margin-bottom:2px}
+.snotes{font-size:0.73rem;color:var(--muted);font-style:italic;margin-top:5px}
+.sday{display:inline-block;background:rgba(27,154,170,0.2);color:var(--teal);padding:2px 7px;border-radius:4px;font-size:0.66rem;font-weight:800;text-transform:uppercase;margin-top:7px}
+
+/* FAB */
+.fab{position:fixed;bottom:78px;right:18px;width:50px;height:50px;background:linear-gradient(135deg,var(--warm),var(--golden));border:none;border-radius:15px;color:var(--dark);font-size:1.5rem;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(224,122,60,0.4);transition:all .2s;z-index:99}
+.fab:hover{transform:translateY(-2px) scale(1.05)}
+
+/* MODALS */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:1000;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(4px)}
+.modal.active{display:flex}
+.mc{background:rgba(11,4,0,0.98);border:1px solid var(--border);border-radius:20px;padding:26px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto}
+.mhdr{font-family:'Alfa Slab One',serif;font-size:1.25rem;color:var(--warm);margin-bottom:18px;display:flex;align-items:center;justify-content:space-between}
+.mclose{background:none;border:none;color:var(--muted);font-size:1.25rem;cursor:pointer;padding:3px}
+.mfg{margin-bottom:13px}
+.mfg label{display:block;font-size:0.73rem;font-weight:800;color:var(--golden);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.mfg input,.mfg select,.mfg textarea{width:100%;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:10px;padding:10px 13px;color:var(--text);font-size:0.93rem;font-family:'Nunito Sans',sans-serif}
+.mfg textarea{resize:vertical;min-height:76px}
+.mfg input:focus,.mfg select:focus,.mfg textarea:focus{outline:none;border-color:var(--warm)}
+.mfg select option{background:#1a0800}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.btn-row{display:flex;gap:9px;margin-top:18px}
+.btn-save{flex:1;background:linear-gradient(135deg,var(--warm),var(--golden));color:var(--dark);border:none;border-radius:12px;padding:12px;font-size:0.93rem;font-weight:800;cursor:pointer;font-family:'Nunito Sans',sans-serif}
+.btn-cancel{flex:1;background:rgba(255,255,255,0.08);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:0.93rem;font-weight:800;cursor:pointer;font-family:'Nunito Sans',sans-serif}
+.btn-danger{background:rgba(216,74,60,0.15);color:#ff6b5b;border:1px solid rgba(216,74,60,0.3);border-radius:10px;padding:9px 14px;font-size:0.83rem;font-weight:700;cursor:pointer;font-family:'Nunito Sans',sans-serif}
+
+/* DETAIL MODAL */
+.det-title{font-family:'Alfa Slab One',serif;font-size:1.45rem;color:var(--text);line-height:1.2;margin-bottom:5px}
+.det-venue{color:var(--muted);font-size:0.88rem;margin-bottom:14px}
+.det-times{display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.tpill{background:rgba(255,255,255,0.08);border-radius:8px;padding:7px 13px;font-size:0.83rem;font-weight:700}
+.det-sl{font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--golden);margin-bottom:5px}
+.tick-sel{background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-family:'Nunito Sans',sans-serif;font-size:0.84rem;cursor:pointer;width:100%}
+.att-list{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:14px}
+.att-chip{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.07);border-radius:20px;padding:4px 11px 4px 4px;font-size:0.8rem;font-weight:700}
+.att-av{width:23px;height:23px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;font-size:0.57rem;font-weight:900;color:var(--dark);overflow:hidden}
+.att-av img{width:100%;height:100%;object-fit:cover}
+.notes-ta{width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:10px;padding:10px 13px;color:var(--text);font-size:0.88rem;font-family:'Nunito Sans',sans-serif;resize:vertical;min-height:76px;margin-bottom:6px}
+.notes-ta:focus{outline:none;border-color:var(--warm)}
+.pencil-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.88rem;padding:4px 7px;border-radius:6px;transition:all .2s}
+.pencil-btn:hover{background:rgba(255,255,255,0.08);color:var(--text)}
+
+/* PLANNERS TAB */
+.pcard{background:rgba(10,4,0,0.8);border:1px solid var(--border);border-radius:15px;padding:18px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:all .2s}
+.pcard:hover{border-color:var(--warm)}
+.pcard.active-p{border-color:var(--teal)}
+.pcard-info h3{font-weight:800;margin-bottom:3px}
+.pcard-info p{font-size:0.78rem;color:var(--muted)}
+.pbadge{font-size:0.7rem;font-weight:800;padding:4px 9px;border-radius:20px;text-transform:uppercase}
+.pbadge.owner{background:rgba(245,169,68,0.2);color:var(--golden)}
+.pbadge.editor{background:rgba(45,184,168,0.2);color:var(--teal)}
+.pbadge.viewer{background:rgba(255,255,255,0.1);color:var(--muted)}
+.new-p-btn{background:rgba(255,255,255,0.05);border:1px dashed rgba(255,255,255,0.2);border-radius:15px;padding:18px;width:100%;color:var(--muted);font-size:0.93rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;font-family:'Nunito Sans',sans-serif;transition:all .2s;margin-bottom:12px}
+.new-p-btn:hover{border-color:var(--warm);color:var(--text)}
+
+/* SHARING */
+.mcard{background:rgba(10,4,0,0.8);border:1px solid var(--border);border-radius:13px;padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:13px}
+.mav{width:46px;height:46px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.98rem;color:var(--dark);overflow:hidden;flex-shrink:0;border:2px solid var(--border)}
+.mav img{width:100%;height:100%;object-fit:cover}
+.minfo{flex:1}
+.mname{font-weight:800;margin-bottom:2px}
+.mrole{font-size:0.78rem;color:var(--muted)}
+.sec-lbl{font-size:0.73rem;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:var(--golden);margin:18px 0 10px}
+.inv-box{background:rgba(10,4,0,0.7);border:1px solid var(--border);border-radius:13px;padding:18px;margin-bottom:12px}
+.inv-box p{font-size:0.83rem;color:var(--muted);margin-bottom:13px;line-height:1.5}
+.inv-row{display:flex;gap:9px;flex-wrap:wrap}
+.inv-row input{flex:1;min-width:160px;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:10px;padding:10px 13px;color:var(--text);font-family:'Nunito Sans',sans-serif;font-size:0.88rem}
+.inv-row input:focus{outline:none;border-color:var(--warm)}
+.role-sel{background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:10px;padding:10px 11px;color:var(--text);font-family:'Nunito Sans',sans-serif;font-size:0.88rem;cursor:pointer}
+.inv-btn{background:var(--warm);border:none;border-radius:10px;padding:10px 16px;color:var(--dark);font-weight:800;cursor:pointer;font-family:'Nunito Sans',sans-serif;white-space:nowrap}
+.invite-card{background:rgba(245,169,68,0.08);border:1px solid rgba(245,169,68,0.3);border-radius:13px;padding:14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:11px}
+.invite-card p{font-size:0.83rem;color:var(--muted);margin-top:2px}
+.inv-acts{display:flex;gap:7px}
+.btn-accept{background:rgba(45,184,168,0.2);border:1px solid var(--teal);color:var(--teal);border-radius:8px;padding:7px 13px;font-size:0.8rem;font-weight:800;cursor:pointer;font-family:'Nunito Sans',sans-serif}
+.btn-decline{background:rgba(216,74,60,0.1);border:1px solid rgba(216,74,60,0.3);color:#ff6b5b;border-radius:8px;padding:7px 13px;font-size:0.8rem;font-weight:800;cursor:pointer;font-family:'Nunito Sans',sans-serif}
+
+/* PROFILE MENU */
+.pmenu{position:fixed;top:63px;right:14px;background:rgba(10,4,0,0.98);border:1px solid var(--border);border-radius:13px;padding:6px;min-width:195px;z-index:200;display:none;backdrop-filter:blur(20px)}
+.pmenu.open{display:block}
+.pmi{padding:9px 13px;border-radius:8px;cursor:pointer;font-size:0.86rem;font-weight:700;display:flex;align-items:center;gap:9px;color:var(--text);transition:background .15s;border:none;background:none;width:100%;font-family:'Nunito Sans',sans-serif}
+.pmi:hover{background:rgba(255,255,255,0.07)}
+.pmi.danger{color:#ff6b5b}
+.pm-div{height:1px;background:var(--border);margin:4px 0}
+.pm-user{padding:11px 13px;border-bottom:1px solid var(--border);margin-bottom:3px}
+.pm-user strong{display:block;font-size:0.88rem}
+.pm-user span{font-size:0.76rem;color:var(--muted)}
+
+/* TOAST */
+.toast{position:fixed;bottom:78px;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(10,4,0,0.96);border:1px solid var(--border);border-radius:10px;padding:9px 19px;font-size:0.83rem;font-weight:700;opacity:0;transition:all .3s;z-index:2000;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.confirm-msg{color:var(--text);line-height:1.6;margin-bottom:4px;font-size:0.93rem}
+.no-results{color:var(--muted);text-align:center;padding:38px;font-size:0.88rem}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+@media(max-width:600px){
+  .cards-grid{grid-template-columns:1fr 1fr}
+  .card.size-large{grid-column:span 2}
+  .shows-grid{grid-template-columns:1fr 1fr}
+  .frow{grid-template-columns:1fr}
+  .auth-box{padding:30px 22px}
+  .tab-content{padding:13px}
+}
+@media(max-width:400px){
+  .cards-grid{grid-template-columns:1fr}
+  .card.size-large{grid-column:span 1}
+}
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="loading-logo">ARCHIVE</div>
+  <div class="loading-spinner"></div>
+</div>
+
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo"><h1>ARCHIVE</h1><p>Jazz Fest Planner · 2026</p></div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-signin" onclick="switchAuthTab('signin')">Sign In</button>
+      <button class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')">Create Account</button>
+    </div>
+    <div id="auth-error" class="auth-error"></div>
+    <div id="signin-form" class="aform">
+      <div class="fg"><label>Email</label><input type="email" id="si-email" placeholder="you@email.com" autocomplete="email"></div>
+      <div class="fg"><label>Password</label><input type="password" id="si-pass" placeholder="••••••••" autocomplete="current-password"></div>
+      <button class="btn-main" onclick="signInEmail()">Sign In</button>
+      <div class="divider">or</div>
+      <button class="btn-google" onclick="signInGoogle()"><svg class="google-icon" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>Continue with Google</button>
+    </div>
+    <div id="signup-form" class="aform" style="display:none">
+      <div class="fg"><label>Display Name</label><input type="text" id="su-name" placeholder="Your name"></div>
+      <div class="fg">
+        <label>Profile Photo (optional)</label>
+        <div class="av-row">
+          <div class="av-circle" id="su-av-preview" onclick="document.getElementById('av-file').click()"><span id="su-initials">?</span></div>
+          <div class="av-text">Use your initials as avatar (photo upload coming soon)</div>
+        </div>
+        <input type="file" id="av-file" accept="image/*" style="display:none" onchange="handleAvUpload(event)">
+      </div>
+      <div class="fg"><label>Email</label><input type="email" id="su-email" placeholder="you@email.com" autocomplete="email"></div>
+      <div class="fg"><label>Password</label><input type="password" id="su-pass" placeholder="Min. 6 characters" autocomplete="new-password"></div>
+      <button class="btn-main" onclick="signUpEmail()">Create Account</button>
+      <div class="divider">or</div>
+      <button class="btn-google" onclick="signInGoogle()"><svg class="google-icon" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>Continue with Google</button>
+    </div>
+  </div>
+</div>
+
+<div id="app-screen">
+  <div class="app-header">
+    <div class="app-logo">ARCHIVE</div>
+    <div class="hright">
+      <button class="planner-sel" id="p-sel-btn" onclick="switchTab('planners')">My Planner</button>
+      <div class="uav" id="hdr-av" onclick="togglePMenu()"></div>
+    </div>
+  </div>
+  <div class="pmenu" id="pmenu">
+    <div class="pm-user"><strong id="pm-name"></strong><span id="pm-email"></span></div>
+    <button class="pmi" onclick="openEditProfile()">✏️ Edit Profile</button>
+    <div class="pm-div"></div>
+    <button class="pmi danger" onclick="doSignOut()">↩ Sign Out</button>
+  </div>
+
+  <div class="tab-content active" id="tab-planner">
+    <div class="legend">
+      <div class="leg-item"><div class="leg-dot tickets"></div><span>Have Tickets</span></div>
+      <div class="leg-item"><div class="leg-dot planning"></div><span>Planning to Go</span></div>
+      <div class="leg-item"><div class="leg-dot maybe"></div><span>Maybe</span></div>
+      <div class="leg-item"><div class="leg-dot none"></div><span>No Tickets Yet</span></div>
+    </div>
+    <div id="planner-container"></div>
+  </div>
+
+  <div class="tab-content" id="tab-nighttime">
+    <div class="controls">
+      <div class="search-wrap"><input type="text" id="nt-search" class="search-bar" placeholder="Search artist, venue..."><button class="search-clear" id="nt-clear">✕</button></div>
+      <div class="filters" id="nt-filters"></div>
+    </div>
+    <div id="nighttime-container"></div>
+  </div>
+
+  <div class="tab-content" id="tab-jazzfest">
+    <div class="controls">
+      <div class="search-wrap"><input type="text" id="jf-search" class="search-bar" placeholder="Search artist name..."><button class="search-clear" id="jf-clear">✕</button></div>
+      <div class="filters" id="jf-filters"></div>
+    </div>
+    <div id="jazzfest-container"></div>
+  </div>
+
+  <div class="tab-content" id="tab-planners">
+    <button class="new-p-btn" onclick="openNewPlannerModal()">+ Create New Planner</button>
+    <div id="planners-list"></div>
+    <div class="sec-lbl">Pending Invites</div>
+    <div id="invites-list"></div>
+  </div>
+
+  <div class="bnav">
+    <button class="nbtn active" id="nav-planner" onclick="switchTab('planner')"><div class="nico">📅</div><span class="nlbl">Planner</span></button>
+    <button class="nbtn" id="nav-nighttime" onclick="switchTab('nighttime')"><div class="nico">🌙</div><span class="nlbl">Night Shows</span></button>
+    <button class="nbtn" id="nav-jazzfest" onclick="switchTab('jazzfest')"><div class="nico">🎪</div><span class="nlbl">Jazz Fest</span></button>
+    <button class="nbtn" id="nav-planners" onclick="switchTab('planners')"><div class="nico">👥</div><span class="nlbl">Planners</span></button>
+  </div>
+  <button class="fab" id="fab" onclick="openAddModal()">+</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Edit/Add Modal -->
+<div class="modal" id="edit-modal">
+  <div class="mc">
+    <div class="mhdr"><span id="em-title">Edit Show</span><button class="mclose" onclick="closeEditModal()">✕</button></div>
+    <div class="mfg"><label>Show Name</label><input type="text" id="em-name" placeholder="Artist or show name"></div>
+    <div class="mfg"><label>Venue</label><input type="text" id="em-venue" placeholder="Venue name"></div>
+    <div class="frow">
+      <div class="mfg"><label>Day</label><select id="em-day"><option value="wednesday">Wednesday, Apr 29</option><option value="thursday">Thursday, Apr 30</option><option value="friday">Friday, May 1</option><option value="saturday">Saturday, May 2</option><option value="sunday">Sunday, May 3</option></select></div>
+      <div class="mfg"><label>Section</label><select id="em-section"><option value="fest">Jazz Fest Highlights</option><option value="evening">Evening Shows</option><option value="postfest">Post-Fest Shows</option><option value="latenight">Late Night Shows</option><option value="other">Other</option></select></div>
+    </div>
+    <div class="frow">
+      <div class="mfg"><label>Door Time</label><input type="text" id="em-door" placeholder="e.g. 8:00pm"></div>
+      <div class="mfg"><label>Show Time</label><input type="text" id="em-show" placeholder="e.g. 9:00pm"></div>
+    </div>
+    <div class="frow">
+      <div class="mfg"><label>Ticket Status</label><select id="em-tickets"><option value="none">No Tickets Yet</option><option value="tickets">Have Tickets</option><option value="planning">Planning to Go</option><option value="maybe">Maybe</option></select></div>
+      <div class="mfg"><label>Card Size</label><select id="em-size"><option value="small">Small</option><option value="medium" selected>Medium</option><option value="large">Large</option></select></div>
+    </div>
+    <div class="mfg"><label>Description</label><textarea id="em-desc" placeholder="Lineup, details..."></textarea></div>
+    <div class="mfg"><label>My Notes</label><textarea id="em-notes" placeholder="Personal notes..."></textarea></div>
+    <div class="btn-row"><button class="btn-save" onclick="saveEvent()">Save</button><button class="btn-cancel" onclick="closeEditModal()">Cancel</button></div>
+    <div style="margin-top:9px;text-align:center" id="del-btn-wrap"><button class="btn-danger" onclick="deleteCurrentEvent()">Delete Show</button></div>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal" id="detail-modal">
+  <div class="mc">
+    <div class="mhdr"><span>Show Details</span><button class="mclose" onclick="closeDetailModal()">✕</button></div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:9px;margin-bottom:4px">
+      <div class="det-title" id="det-title"></div>
+      <button class="pencil-btn" id="det-pencil" onclick="openEditFromDetail()">✏️</button>
+    </div>
+    <div class="det-venue" id="det-venue"></div>
+    <div class="det-times" id="det-times"></div>
+    <div id="det-desc-wrap" style="display:none;margin-bottom:14px">
+      <div class="det-sl">About</div>
+      <div style="color:var(--muted);font-size:0.88rem;line-height:1.6;font-style:italic" id="det-desc"></div>
+    </div>
+    <div class="mfg" style="margin-bottom:14px">
+      <div class="det-sl">Ticket Status</div>
+      <select class="tick-sel" id="det-tickets" onchange="updateDetTickets()">
+        <option value="none">No Tickets Yet</option>
+        <option value="tickets">✓ Have Tickets</option>
+        <option value="planning">Planning to Go</option>
+        <option value="maybe">Maybe</option>
+      </select>
+    </div>
+    <div id="det-att-wrap" style="display:none;margin-bottom:14px">
+      <div class="det-sl">Also Going</div>
+      <div class="att-list" id="det-attendees"></div>
+    </div>
+    <div>
+      <div class="det-sl">My Notes</div>
+      <textarea class="notes-ta" id="det-notes" placeholder="Add personal notes..." onchange="saveDetNotes()"></textarea>
+      <div style="font-size:0.72rem;color:var(--muted)">Notes auto-save when you click away</div>
+    </div>
+    <div class="btn-row" style="margin-top:14px"><button class="btn-cancel" onclick="closeDetailModal()">Close</button></div>
+  </div>
+</div>
+
+<!-- Library Modal -->
+<div class="modal" id="lib-modal">
+  <div class="mc" style="max-width:390px">
+    <div class="mhdr"><span>Add to Planner</span><button class="mclose" onclick="closeLibModal()">✕</button></div>
+    <div class="mfg"><label>Which day?</label><select id="lib-day"><option value="wednesday">Wednesday, Apr 29</option><option value="thursday">Thursday, Apr 30</option><option value="friday">Friday, May 1</option><option value="saturday">Saturday, May 2</option><option value="sunday">Sunday, May 3</option></select></div>
+    <div class="mfg"><label>Which section?</label><select id="lib-section"><option value="postfest">Post-Fest Shows</option><option value="latenight">Late Night Shows</option><option value="evening">Evening Shows</option><option value="fest">Jazz Fest Highlights</option></select></div>
+    <div class="btn-row"><button class="btn-save" onclick="confirmAddFromLib()">Add Show</button><button class="btn-cancel" onclick="closeLibModal()">Cancel</button></div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal" id="confirm-modal">
+  <div class="mc" style="max-width:370px">
+    <div class="mhdr" id="conf-title">Confirm</div>
+    <p class="confirm-msg" id="conf-msg"></p>
+    <div class="btn-row"><button class="btn-save" id="conf-yes">Yes</button><button class="btn-cancel" id="conf-no">Cancel</button></div>
+  </div>
+</div>
+
+<!-- New Planner Modal -->
+<div class="modal" id="np-modal">
+  <div class="mc" style="max-width:390px">
+    <div class="mhdr"><span>Create New Planner</span><button class="mclose" onclick="closeNPModal()">✕</button></div>
+    <div class="mfg"><label>Planner Name</label><input type="text" id="np-name" placeholder="e.g. Jazz Fest 2026"></div>
+    <div class="btn-row"><button class="btn-save" onclick="createNewPlanner()">Create</button><button class="btn-cancel" onclick="closeNPModal()">Cancel</button></div>
+  </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal" id="share-modal">
+  <div class="mc" style="max-width:450px">
+    <div class="mhdr"><span>Share Planner</span><button class="mclose" onclick="closeShareModal()">✕</button></div>
+    <div class="inv-box">
+      <p>Invite someone to this planner. Editors can add and edit shows. Viewers can only view.</p>
+      <div class="inv-row">
+        <input type="email" id="inv-email" placeholder="their@email.com">
+        <select class="role-sel" id="inv-role"><option value="editor">Editor</option><option value="viewer">Viewer</option></select>
+        <button class="inv-btn" onclick="sendInvite()">Invite</button>
+      </div>
+    </div>
+    <div class="sec-lbl">Current Members</div>
+    <div id="share-members"></div>
+  </div>
+</div>
+
+<!-- Profile Modal -->
+<div class="modal" id="profile-modal">
+  <div class="mc" style="max-width:390px">
+    <div class="mhdr"><span>Edit Profile</span><button class="mclose" onclick="closeProfileModal()">✕</button></div>
+    <div class="mfg">
+      <label>Profile Photo</label>
+      <div class="av-row">
+        <div class="av-circle" id="prof-av-preview" onclick="document.getElementById('prof-av-file').click()"></div>
+        <div class="av-text">Photo upload coming soon</div>
+      </div>
+      <input type="file" id="prof-av-file" accept="image/*" style="display:none" onchange="handleProfAvUpload(event)">
+    </div>
+    <div class="mfg"><label>Display Name</label><input type="text" id="prof-name" placeholder="Your name"></div>
+    <div class="btn-row"><button class="btn-save" onclick="saveProfile()">Save</button><button class="btn-cancel" onclick="closeProfileModal()">Cancel</button></div>
+  </div>
+</div>
+
+<script>
+
+// ============ FIREBASE ============
+const firebaseConfig = {
+  apiKey: "AIzaSyA5B3VupL14Kun6RModCRY6sVnZKZ73yTc",
+  authDomain: "jazz-fest-archive-37492.firebaseapp.com",
+  projectId: "jazz-fest-archive-37492",
+  storageBucket: "jazz-fest-archive-37492.firebasestorage.app",
+  messagingSenderId: "1010269281143",
+  appId: "1:1010269281143:web:25fb3b2af98dfef2181f72"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = null; // Storage disabled - requires Blaze plan
+
+// ============ STATE ============
+let currentUser = null, currentUserProfile = null;
+let currentPlannerId = null, currentPlannerName = 'My Planner', currentPlannerRole = 'owner';
+let scheduleData = {}, memberProfiles = {};
+let plannerUnsub = null, isFirstSnap = true;
+let currentTab = 'planner';
+let ntFilter = 'all', ntSearch = '', jfFilter = 'all', jfSearch = '';
+let editingEvent = null, isAddMode = false, selectedLibShow = null, detailEvent = null;
+let avatarFile = null, profAvatarFile = null;
+
+// ============ AUTH STATE ============
+auth.onAuthStateChanged(async user => {
+  document.getElementById('loading-screen').style.display = 'none';
+  if (user) {
+    currentUser = user;
+    await loadUserProfile(user);
+    showApp();
+  } else {
+    currentUser = null;
+    showAuth();
+  }
+});
+
+function showAuth() {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display = 'none';
+}
+
+async function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  updateHdrAvatar();
+  await loadUserPlanners();
+}
+
+function switchAuthTab(tab) {
+  document.getElementById('tab-signin').classList.toggle('active', tab === 'signin');
+  document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('signin-form').style.display = tab === 'signin' ? 'flex' : 'none';
+  document.getElementById('signup-form').style.display = tab === 'signup' ? 'flex' : 'none';
+  document.getElementById('auth-error').style.display = 'none';
+}
+
+function showAuthErr(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+async function signInEmail() {
+  const email = document.getElementById('si-email').value.trim();
+  const pass = document.getElementById('si-pass').value;
+  if (!email || !pass) { showAuthErr('Please fill in all fields'); return; }
+  try { await auth.signInWithEmailAndPassword(email, pass); }
+  catch(e) { showAuthErr(e.message.replace('Firebase: ','')); }
+}
+
+async function signUpEmail() {
+  const name = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const pass = document.getElementById('su-pass').value;
+  if (!name || !email || !pass) { showAuthErr('Please fill in all fields'); return; }
+  if (pass.length < 6) { showAuthErr('Password must be at least 6 characters'); return; }
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    let photoURL = null;
+    if (avatarFile) photoURL = await uploadAvatar(cred.user.uid, avatarFile);
+    await saveUserProfile(cred.user.uid, { displayName: name, email, photoURL, initials: getInitials(name) });
+    await cred.user.updateProfile({ displayName: name, photoURL });
+  } catch(e) { showAuthErr(e.message.replace('Firebase: ','')); }
+}
+
+async function signInGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try {
+    const result = await auth.signInWithPopup(provider);
+    const user = result.user;
+    const doc = await db.collection('users').doc(user.uid).get();
+    if (!doc.exists) {
+      await saveUserProfile(user.uid, {
+        displayName: user.displayName || 'User',
+        email: user.email,
+        photoURL: user.photoURL,
+        initials: getInitials(user.displayName || user.email)
+      });
+    }
+  } catch(e) { showAuthErr(e.message.replace('Firebase: ','')); }
+}
+
+async function doSignOut() {
+  togglePMenu();
+  if (plannerUnsub) plannerUnsub();
+  await auth.signOut();
+}
+
+// ============ USER PROFILES ============
+async function saveUserProfile(uid, data) {
+  await db.collection('users').doc(uid).set(data, { merge: true });
+}
+
+async function loadUserProfile(user) {
+  const doc = await db.collection('users').doc(user.uid).get();
+  currentUserProfile = doc.exists ? doc.data() : {
+    displayName: user.displayName || 'User',
+    email: user.email,
+    photoURL: user.photoURL,
+    initials: getInitials(user.displayName || user.email || 'U')
+  };
+  document.getElementById('pm-name').textContent = currentUserProfile.displayName;
+  document.getElementById('pm-email').textContent = currentUserProfile.email;
+}
+
+async function uploadAvatar(uid, file) {
+  if (!storage) { showToast("Photo uploads require Storage upgrade"); return null; }
+  const ref = storage.ref("avatars/" + uid);
+  await ref.put(file);
+  return await ref.getDownloadURL();
+}
+
+function handleAvUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  avatarFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const p = document.getElementById('su-av-preview');
+    p.innerHTML = '<img src="' + ev.target.result + '" alt="av">';
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleProfAvUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  profAvatarFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('prof-av-preview').innerHTML = '<img src="' + ev.target.result + '" alt="av">';
+  };
+  reader.readAsDataURL(file);
+}
+
+document.getElementById('su-name').addEventListener('input', e => {
+  document.getElementById('su-initials').textContent = getInitials(e.target.value) || '?';
+});
+
+function getInitials(name) {
+  if (!name) return '?';
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+}
+
+function updateHdrAvatar() {
+  const el = document.getElementById('hdr-av');
+  if (currentUserProfile?.photoURL) {
+    el.innerHTML = '<img src="' + currentUserProfile.photoURL + '" alt="av">';
+  } else {
+    el.textContent = currentUserProfile?.initials || getInitials(currentUser?.displayName || '?');
+  }
+}
+
+function openEditProfile() {
+  togglePMenu();
+  const preview = document.getElementById('prof-av-preview');
+  if (currentUserProfile?.photoURL) {
+    preview.innerHTML = '<img src="' + currentUserProfile.photoURL + '" alt="av">';
+  } else {
+    preview.textContent = currentUserProfile?.initials || '?';
+    Object.assign(preview.style, {background:'var(--warm)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.5rem',fontWeight:'900',color:'var(--dark)'});
+  }
+  document.getElementById('prof-name').value = currentUserProfile?.displayName || '';
+  document.getElementById('profile-modal').classList.add('active');
+}
+
+async function saveProfile() {
+  const name = document.getElementById('prof-name').value.trim();
+  if (!name) { showToast('Please enter a name'); return; }
+  let photoURL = currentUserProfile?.photoURL || null;
+  if (profAvatarFile) {
+    photoURL = await uploadAvatar(currentUser.uid, profAvatarFile);
+    profAvatarFile = null;
+  }
+  const updates = { displayName: name, photoURL, initials: getInitials(name) };
+  await saveUserProfile(currentUser.uid, updates);
+  currentUserProfile = { ...currentUserProfile, ...updates };
+  await currentUser.updateProfile({ displayName: name, photoURL });
+  updateHdrAvatar();
+  closeProfileModal();
+  showToast('Profile updated!');
+}
+
+function closeProfileModal() { document.getElementById('profile-modal').classList.remove('active'); }
+function togglePMenu() { document.getElementById('pmenu').classList.toggle('open'); }
+document.addEventListener('click', e => {
+  const m = document.getElementById('pmenu'), a = document.getElementById('hdr-av');
+  if (!m.contains(e.target) && !a.contains(e.target)) m.classList.remove('open');
+});
+
+// ============ PLANNERS ============
+async function loadUserPlanners() {
+  const snap = await db.collection('planners').where('members.' + currentUser.uid + '.accepted','==',true).get();
+  if (snap.empty) {
+    const id = await createPlanner('Jazz Fest 2026');
+    await switchToPlanner(id);
+  } else {
+    const owned = snap.docs.find(d => d.data().members[currentUser.uid]?.role === 'owner');
+    await switchToPlanner((owned || snap.docs[0]).id);
+  }
+  renderPlannersList();
+  renderPendingInvites();
+}
+
+async function createPlanner(name) {
+  const ref = db.collection('planners').doc();
+  await ref.set({
+    name,
+    owner: currentUser.uid,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    members: { [currentUser.uid]: {
+      role: 'owner', accepted: true,
+      displayName: currentUserProfile?.displayName || currentUser.displayName,
+      email: currentUser.email,
+      photoURL: currentUserProfile?.photoURL || null,
+      initials: currentUserProfile?.initials || getInitials(currentUser.displayName || '')
+    }},
+    scheduleData: getEmptySchedule(),
+    __version: 'v1'
+  });
+  return ref.id;
+}
+
+async function switchToPlanner(plannerId) {
+  if (plannerUnsub) plannerUnsub();
+  currentPlannerId = plannerId;
+  const doc = await db.collection('planners').doc(plannerId).get();
+  if (!doc.exists) return;
+  const data = doc.data();
+  currentPlannerName = data.name;
+  currentPlannerRole = data.members[currentUser.uid]?.role || 'viewer';
+  scheduleData = data.scheduleData || getEmptySchedule();
+  memberProfiles = {};
+  Object.entries(data.members || {}).forEach(([uid, m]) => { if (m.accepted) memberProfiles[uid] = m; });
+  document.getElementById('p-sel-btn').textContent = currentPlannerName;
+  isFirstSnap = true;
+  plannerUnsub = db.collection('planners').doc(plannerId).onSnapshot(snap => {
+    if (isFirstSnap) { isFirstSnap = false; return; }
+    if (!snap.exists) return;
+    const d = snap.data();
+    scheduleData = d.scheduleData || getEmptySchedule();
+    memberProfiles = {};
+    Object.entries(d.members || {}).forEach(([uid, m]) => { if (m.accepted) memberProfiles[uid] = m; });
+    renderCurrentTab();
+    showToast('Planner updated');
+  });
+  renderSchedule();
+  renderPlannersList();
+}
+
+async function savePlannerData() {
+  if (!currentPlannerId || currentPlannerRole === 'viewer') return;
+  await db.collection('planners').doc(currentPlannerId).update({
+    scheduleData,
+    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+function openNewPlannerModal() {
+  document.getElementById('np-name').value = '';
+  document.getElementById('np-modal').classList.add('active');
+}
+function closeNPModal() { document.getElementById('np-modal').classList.remove('active'); }
+
+async function createNewPlanner() {
+  const name = document.getElementById('np-name').value.trim();
+  if (!name) { showToast('Please enter a name'); return; }
+  const id = await createPlanner(name);
+  closeNPModal();
+  await switchToPlanner(id);
+  switchTab('planner');
+  showToast('"' + name + '" created!');
+}
+
+async function renderPlannersList() {
+  const container = document.getElementById('planners-list');
+  container.innerHTML = '';
+  const snap = await db.collection('planners').where('members.' + currentUser.uid + '.accepted','==',true).get();
+  snap.docs.forEach(doc => {
+    const data = doc.data();
+    const role = data.members[currentUser.uid]?.role || 'viewer';
+    const isActive = doc.id === currentPlannerId;
+    const mc = Object.values(data.members || {}).filter(m => m.accepted).length;
+    const card = document.createElement('div');
+    card.className = 'pcard' + (isActive ? ' active-p' : '');
+    card.innerHTML = '<div class="pcard-info"><h3>' + data.name + '</h3><p>' + mc + ' member' + (mc!==1?'s':'') + ' · ' + role + '</p></div>' +
+      '<div style="display:flex;gap:7px;align-items:center">' +
+      (role !== 'viewer' ? '<button onclick="event.stopPropagation();openShareModal(\'' + doc.id + '\')" style="background:rgba(255,255,255,0.08);border:1px solid var(--border);border-radius:8px;padding:5px 11px;color:var(--text);font-size:0.78rem;font-weight:700;cursor:pointer;font-family:\'Nunito Sans\',sans-serif;">Share</button>' : '') +
+      '<span class="pbadge ' + role + '">' + role.charAt(0).toUpperCase() + role.slice(1) + '</span></div>';
+    card.onclick = async () => { await switchToPlanner(doc.id); switchTab('planner'); };
+    container.appendChild(card);
+  });
+}
+
+// ============ SHARING ============
+async function openShareModal(plannerId) {
+  currentPlannerId = plannerId;
+  const doc = await db.collection('planners').doc(plannerId).get();
+  const data = doc.data();
+  document.getElementById('inv-email').value = '';
+  const list = document.getElementById('share-members');
+  list.innerHTML = '';
+  Object.entries(data.members || {}).forEach(([uid, m]) => {
+    if (!m.accepted) return;
+    const card = document.createElement('div');
+    card.className = 'mcard';
+    card.innerHTML = '<div class="mav">' + (m.photoURL ? '<img src="' + m.photoURL + '">' : (m.initials||'?')) + '</div>' +
+      '<div class="minfo"><div class="mname">' + (m.displayName||'Unknown') + '</div><div class="mrole">' + m.email + ' · ' + m.role + '</div></div>' +
+      (uid !== data.owner ? '<button class="btn-danger" onclick="removeMember(\'' + plannerId + '\',\'' + uid + '\')">Remove</button>' : '<span style="font-size:0.73rem;color:var(--muted)">Owner</span>');
+    list.appendChild(card);
+  });
+  document.getElementById('share-modal').classList.add('active');
+}
+function closeShareModal() { document.getElementById('share-modal').classList.remove('active'); }
+
+async function sendInvite() {
+  const email = document.getElementById('inv-email').value.trim().toLowerCase();
+  const role = document.getElementById('inv-role').value;
+  if (!email) { showToast('Please enter an email'); return; }
+  const snap = await db.collection('users').where('email','==',email).get();
+  if (snap.empty) { showToast('No user found with that email'); return; }
+  const invitedDoc = snap.docs[0];
+  const invData = invitedDoc.data();
+  await db.collection('planners').doc(currentPlannerId).update({
+    ['members.' + invitedDoc.id]: { role, accepted: false, displayName: invData.displayName, email: invData.email, photoURL: invData.photoURL || null, initials: invData.initials || getInitials(invData.displayName) }
+  });
+  await db.collection('invites').add({
+    toUid: invitedDoc.id, toEmail: email,
+    fromUid: currentUser.uid, fromName: currentUserProfile?.displayName || currentUser.displayName,
+    plannerId: currentPlannerId, plannerName: currentPlannerName, role,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  showToast('Invite sent to ' + email);
+  document.getElementById('inv-email').value = '';
+  openShareModal(currentPlannerId);
+}
+
+async function removeMember(plannerId, uid) {
+  const ok = await showConfirm('Remove this member from the planner?');
+  if (!ok) return;
+  await db.collection('planners').doc(plannerId).update({ ['members.' + uid]: firebase.firestore.FieldValue.delete() });
+  openShareModal(plannerId);
+  showToast('Member removed');
+}
+
+async function renderPendingInvites() {
+  const container = document.getElementById('invites-list');
+  const snap = await db.collection('invites').where('toUid','==',currentUser.uid).get();
+  container.innerHTML = '';
+  const pending = snap.docs.filter(d => !d.data().accepted && !d.data().declined);
+  if (pending.length === 0) {
+    container.innerHTML = '<p style="color:var(--muted);font-size:0.83rem;">No pending invites.</p>';
+    return;
+  }
+  pending.forEach(doc => {
+    const data = doc.data();
+    const card = document.createElement('div');
+    card.className = 'invite-card';
+    card.innerHTML = '<div><strong>' + data.plannerName + '</strong><p>From ' + data.fromName + ' · ' + data.role + ' access</p></div>' +
+      '<div class="inv-acts"><button class="btn-accept" onclick="acceptInvite(\'' + doc.id + '\',\'' + data.plannerId + '\')">Accept</button><button class="btn-decline" onclick="declineInvite(\'' + doc.id + '\',\'' + data.plannerId + '\')">Decline</button></div>';
+    container.appendChild(card);
+  });
+}
+
+async function acceptInvite(inviteId, plannerId) {
+  await db.collection('planners').doc(plannerId).update({ ['members.' + currentUser.uid + '.accepted']: true });
+  await db.collection('invites').doc(inviteId).update({ accepted: true });
+  showToast('Invite accepted!');
+  renderPendingInvites();
+  renderPlannersList();
+}
+
+async function declineInvite(inviteId, plannerId) {
+  await db.collection('planners').doc(plannerId).update({ ['members.' + currentUser.uid]: firebase.firestore.FieldValue.delete() });
+  await db.collection('invites').doc(inviteId).update({ declined: true });
+  showToast('Invite declined');
+  renderPendingInvites();
+}
+
+// ============ EMPTY SCHEDULE ============
+function getEmptySchedule() {
+  return {
+    wednesday: { day: "Wednesday, April 29", subtitle: "Daze Between", events: { evening:[], postfest:[], latenight:[], other:[] }},
+    thursday:  { day: "Thursday, April 30",  subtitle: "Locals Thursday", events: { fest:[], postfest:[], latenight:[], other:[] }},
+    friday:    { day: "Friday, May 1",        subtitle: "", events: { fest:[], postfest:[], latenight:[], other:[] }},
+    saturday:  { day: "Saturday, May 2",      subtitle: "", events: { fest:[], postfest:[], latenight:[], other:[] }},
+    sunday:    { day: "Sunday, May 3",        subtitle: "", events: { fest:[], postfest:[], latenight:[], other:[] }}
+  };
+}
+
+// ============ NAVIGATION ============
+function switchTab(tab) {
+  currentTab = tab;
+  ['planner','nighttime','jazzfest','planners'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    const nb = document.getElementById('nav-' + t);
+    if (nb) nb.classList.toggle('active', t === tab);
+  });
+  document.getElementById('fab').style.display = tab === 'planner' ? 'flex' : 'none';
+  if (tab === 'nighttime') renderNighttimeLib();
+  else if (tab === 'jazzfest') renderJazzFestLib();
+  else if (tab === 'planners') { renderPlannersList(); renderPendingInvites(); }
+  else renderSchedule();
+}
+
+function renderCurrentTab() {
+  if (currentTab === 'planner') renderSchedule();
+  else if (currentTab === 'nighttime') renderNighttimeLib();
+  else if (currentTab === 'jazzfest') renderJazzFestLib();
+}
+
+// ============ SCHEDULE RENDER ============
+const SEC_LABELS = { fest:'Jazz Fest Highlights', evening:'Evening Shows', postfest:'Post-Fest Shows', latenight:'Late Night Shows', other:'Other' };
+const DAY_ORDER = ['wednesday','thursday','friday','saturday','sunday'];
+
+function renderSchedule() {
+  const c = document.getElementById('planner-container');
+  c.innerHTML = '';
+  DAY_ORDER.forEach(dk => {
+    const dd = scheduleData[dk];
+    if (!dd) return;
+    const hasSomething = Object.values(dd.events||{}).some(a => a.length > 0);
+    if (!hasSomething && currentPlannerRole === 'viewer') return;
+    const secOrder = dk === 'wednesday' ? ['evening','postfest','latenight','other'] : ['fest','postfest','latenight','other'];
+    let secHtml = '';
+    let hasContent = false;
+    secOrder.forEach(sk => {
+      const evts = dd.events?.[sk] || [];
+      if (evts.length === 0 && currentPlannerRole === 'viewer') return;
+      hasContent = true;
+      secHtml += '<div class="sec-grp"><div class="sec-hdr"><div class="sec-title">' + (SEC_LABELS[sk]||sk) + '</div>' +
+        (currentPlannerRole !== 'viewer' ? '<button class="add-card-btn" onclick="openAddModal(\'' + dk + '\',\'' + sk + '\')">+ Add</button>' : '') +
+        '</div><div class="cards-grid">' +
+        evts.map((evt, idx) => renderCard(evt, dk, sk, idx)).join('') +
+        '</div></div>';
+    });
+    if (!hasContent) return;
+    const sec = document.createElement('div');
+    sec.className = 'day-sec';
+    sec.innerHTML = '<div class="day-hdr"><div class="day-title">' + dd.day + '</div>' +
+      (dd.subtitle ? '<div class="day-sub">' + dd.subtitle + '</div>' : '') + '</div>' + secHtml;
+    c.appendChild(sec);
+  });
+}
+
+function renderCard(evt, dk, sk, idx) {
+  const sc = evt.ticketStatus === 'tickets' ? 'has-tickets' : evt.ticketStatus === 'planning' ? 'planning' : evt.ticketStatus === 'maybe' ? 'maybe' : '';
+  const szc = 'size-' + (evt.cardSize || 'medium');
+  let badge = '';
+  if (evt.ticketStatus === 'tickets') badge = '<span class="cbadge tickets">✓ Tickets</span>';
+  else if (evt.ticketStatus === 'planning') badge = '<span class="cbadge planning">Planning</span>';
+  else if (evt.ticketStatus === 'maybe') badge = '<span class="cbadge maybe">Maybe</span>';
+  let time = '';
+  if (evt.doorTime || evt.showTime) {
+    time = '<div class="card-time">';
+    if (evt.doorTime) time += '🚪 ' + evt.doorTime;
+    if (evt.showTime) time += (evt.doorTime ? ' · ' : '') + '🕐 ' + evt.showTime;
+    time += '</div>';
+  }
+  return '<div class="card ' + sc + ' ' + szc + '" onclick="openDetailModal(\'' + dk + '\',\'' + sk + '\',' + idx + ')">' +
+    '<div class="card-name">' + evt.name + '</div>' +
+    (evt.venue ? '<div class="card-venue">📍 ' + evt.venue + '</div>' : '') +
+    time +
+    '<div class="card-footer">' + (badge||'<span></span>') + '<span></span></div>' +
+    '</div>';
+}
+
+// ============ DETAIL MODAL ============
+function openDetailModal(dk, sk, idx) {
+  const evt = scheduleData[dk]?.events?.[sk]?.[idx];
+  if (!evt) return;
+  detailEvent = { dk, sk, idx, id: evt.id };
+  document.getElementById('det-title').textContent = evt.name;
+  document.getElementById('det-venue').textContent = evt.venue || '';
+  const te = document.getElementById('det-times');
+  te.innerHTML = '';
+  if (evt.doorTime) te.innerHTML += '<div class="tpill">🚪 Doors: ' + evt.doorTime + '</div>';
+  if (evt.showTime) te.innerHTML += '<div class="tpill">🕐 Show: ' + evt.showTime + '</div>';
+  const dw = document.getElementById('det-desc-wrap');
+  if (evt.description) { document.getElementById('det-desc').textContent = evt.description; dw.style.display = 'block'; }
+  else dw.style.display = 'none';
+  document.getElementById('det-tickets').value = evt.ticketStatus || 'none';
+  document.getElementById('det-notes').value = evt.notes || '';
+  const aw = document.getElementById('det-att-wrap');
+  const al = document.getElementById('det-attendees');
+  al.innerHTML = '';
+  let hasAtt = false;
+  Object.entries(memberProfiles).forEach(([uid, p]) => {
+    if (uid === currentUser.uid) return;
+    hasAtt = true;
+    const chip = document.createElement('div');
+    chip.className = 'att-chip';
+    chip.innerHTML = '<div class="att-av">' + (p.photoURL ? '<img src="' + p.photoURL + '">' : (p.initials||'?')) + '</div>' + (p.displayName||'');
+    al.appendChild(chip);
+  });
+  aw.style.display = hasAtt ? 'block' : 'none';
+  document.getElementById('det-pencil').style.display = currentPlannerRole !== 'viewer' ? 'block' : 'none';
+  document.getElementById('detail-modal').classList.add('active');
+}
+
+function closeDetailModal() { document.getElementById('detail-modal').classList.remove('active'); detailEvent = null; }
+
+function updateDetTickets() {
+  if (!detailEvent || currentPlannerRole === 'viewer') return;
+  const evt = scheduleData[detailEvent.dk]?.events?.[detailEvent.sk]?.[detailEvent.idx];
+  if (!evt) return;
+  evt.ticketStatus = document.getElementById('det-tickets').value;
+  renderSchedule();
+  savePlannerData();
+}
+
+function saveDetNotes() {
+  if (!detailEvent || currentPlannerRole === 'viewer') return;
+  const evt = scheduleData[detailEvent.dk]?.events?.[detailEvent.sk]?.[detailEvent.idx];
+  if (!evt) return;
+  evt.notes = document.getElementById('det-notes').value;
+  savePlannerData();
+}
+
+function openEditFromDetail() {
+  const saved = detailEvent ? { ...detailEvent } : null;
+  closeDetailModal();
+  if (!saved) return;
+  const evt = scheduleData[saved.dk]?.events?.[saved.sk]?.[saved.idx];
+  if (evt) openEditModal(evt, saved.dk, saved.sk);
+}
+
+// ============ EDIT/ADD MODAL ============
+function openAddModal(dk, sk) {
+  if (currentPlannerRole === 'viewer') { showToast('View-only access'); return; }
+  isAddMode = true;
+  editingEvent = { dk: dk||'thursday', sk: sk||'postfest' };
+  document.getElementById('em-title').textContent = 'Add Show';
+  ['em-name','em-venue','em-door','em-show','em-desc','em-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('em-day').value = dk||'thursday';
+  document.getElementById('em-section').value = sk||'postfest';
+  document.getElementById('em-tickets').value = 'none';
+  document.getElementById('em-size').value = 'medium';
+  document.getElementById('del-btn-wrap').style.display = 'none';
+  document.getElementById('edit-modal').classList.add('active');
+}
+
+function openEditModal(evt, dk, sk) {
+  if (currentPlannerRole === 'viewer') { showToast('View-only access'); return; }
+  isAddMode = false;
+  editingEvent = { dk, sk, id: evt.id };
+  document.getElementById('em-title').textContent = 'Edit Show';
+  document.getElementById('em-name').value = evt.name || '';
+  document.getElementById('em-venue').value = evt.venue || '';
+  document.getElementById('em-day').value = dk;
+  document.getElementById('em-section').value = sk;
+  document.getElementById('em-door').value = evt.doorTime || '';
+  document.getElementById('em-show').value = evt.showTime || '';
+  document.getElementById('em-tickets').value = evt.ticketStatus || 'none';
+  document.getElementById('em-size').value = evt.cardSize || 'medium';
+  document.getElementById('em-desc').value = evt.description || '';
+  document.getElementById('em-notes').value = evt.notes || '';
+  document.getElementById('del-btn-wrap').style.display = 'block';
+  document.getElementById('edit-modal').classList.add('active');
+}
+
+function closeEditModal() { document.getElementById('edit-modal').classList.remove('active'); editingEvent = null; }
+
+function saveEvent() {
+  const name = document.getElementById('em-name').value.trim();
+  if (!name) { showToast('Please enter a name'); return; }
+  const dk = document.getElementById('em-day').value;
+  const sk = document.getElementById('em-section').value;
+  const evtData = {
+    id: isAddMode ? dk + '-' + Date.now() : editingEvent.id,
+    name, venue: document.getElementById('em-venue').value.trim(),
+    doorTime: document.getElementById('em-door').value.trim(),
+    showTime: document.getElementById('em-show').value.trim(),
+    ticketStatus: document.getElementById('em-tickets').value,
+    cardSize: document.getElementById('em-size').value,
+    description: document.getElementById('em-desc').value.trim(),
+    notes: document.getElementById('em-notes').value.trim()
+  };
+  if (isAddMode) {
+    if (!scheduleData[dk].events[sk]) scheduleData[dk].events[sk] = [];
+    scheduleData[dk].events[sk].push(evtData);
+  } else {
+    Object.keys(scheduleData).forEach(d => {
+      Object.keys(scheduleData[d].events).forEach(s => {
+        const arr = scheduleData[d].events[s];
+        const i = arr.findIndex(e => e.id === editingEvent.id);
+        if (i !== -1) arr.splice(i, 1);
+      });
+    });
+    if (!scheduleData[dk].events[sk]) scheduleData[dk].events[sk] = [];
+    scheduleData[dk].events[sk].push(evtData);
+  }
+  closeEditModal();
+  renderSchedule();
+  savePlannerData();
+  showToast(isAddMode ? 'Show added!' : 'Show updated!');
+}
+
+async function deleteCurrentEvent() {
+  if (!editingEvent) return;
+  const ok = await showConfirm('Remove this show from your planner?', 'Remove Show');
+  if (!ok) return;
+  Object.keys(scheduleData).forEach(d => {
+    Object.keys(scheduleData[d].events).forEach(s => {
+      const arr = scheduleData[d].events[s];
+      const i = arr.findIndex(e => e.id === editingEvent.id);
+      if (i !== -1) arr.splice(i, 1);
+    });
+  });
+  closeEditModal();
+  renderSchedule();
+  savePlannerData();
+  showToast('Show removed');
+}
+
+// ============ LIBRARY ============
+function isInPlanner(name) {
+  for (const dk in scheduleData)
+    for (const sk in scheduleData[dk].events)
+      if (scheduleData[dk].events[sk].find(e => e.name.toLowerCase() === name.toLowerCase())) return true;
+  return false;
+}
+
+function handleNTCardClick(el, event) {
+  if (event.target.classList.contains('add-btn')) return;
+  const inp = el.dataset.inplanner === 'true';
+  const name = decodeURIComponent(el.dataset.name);
+  if (inp) removeFromPlanner(name);
+  else openLibModal(decodeURIComponent(el.dataset.venue), parseInt(el.dataset.idx), 'nighttime');
+}
+
+function handleNTAddClick(btn) {
+  const inp = btn.dataset.inplanner === 'true';
+  const name = decodeURIComponent(btn.dataset.name);
+  if (inp) removeFromPlanner(name);
+  else openLibModal(decodeURIComponent(btn.dataset.venue), parseInt(btn.dataset.idx), 'nighttime');
+}
+
+function handleJFCardClick(el, event) {
+  if (event.target.classList.contains('add-btn')) return;
+  const inp = el.dataset.inplanner === 'true';
+  const name = decodeURIComponent(el.dataset.name);
+  if (inp) removeFromPlanner(name);
+  else {
+    selectedLibShow = { name, venue:'Fair Grounds', doorTime:'', showTime:'', description:'', notes:'', suggestedDay: el.dataset.day, cardSize: el.dataset.tier==='tier1'?'large':el.dataset.tier==='tier2'?'medium':'small' };
+    document.getElementById('lib-day').value = el.dataset.day;
+    document.getElementById('lib-section').value = 'fest';
+    document.getElementById('lib-modal').classList.add('active');
+  }
+}
+
+function handleJFAddClick(btn) {
+  const inp = btn.dataset.inplanner === 'true';
+  const name = decodeURIComponent(btn.dataset.name);
+  if (inp) removeFromPlanner(name);
+  else {
+    selectedLibShow = { name, venue:'Fair Grounds', doorTime:'', showTime:'', description:'', notes:'', suggestedDay: btn.dataset.day, cardSize: btn.dataset.tier==='tier1'?'large':btn.dataset.tier==='tier2'?'medium':'small' };
+    document.getElementById('lib-day').value = btn.dataset.day;
+    document.getElementById('lib-section').value = 'fest';
+    document.getElementById('lib-modal').classList.add('active');
+  }
+}
+
+function openLibModal(venueName, idx, type) {
+  if (currentPlannerRole === 'viewer') { showToast('View-only access'); return; }
+  const venue = nighttimeLibrary[venueName];
+  const show = venue.shows[idx];
+  selectedLibShow = { name: show.name, venue: venueName + ' (' + venue.address + ')', doorTime: show.doorTime, showTime: show.showTime, description: show.notes, notes: '', suggestedDay: show.day, cardSize: 'medium' };
+  const isLate = show.showTime && (show.showTime.includes('am') || parseInt(show.showTime) >= 12);
+  document.getElementById('lib-day').value = show.day;
+  document.getElementById('lib-section').value = isLate ? 'latenight' : 'postfest';
+  document.getElementById('lib-modal').classList.add('active');
+}
+
+function closeLibModal() { document.getElementById('lib-modal').classList.remove('active'); selectedLibShow = null; }
+
+function confirmAddFromLib() {
+  if (!selectedLibShow) return;
+  const dk = document.getElementById('lib-day').value;
+  const sk = document.getElementById('lib-section').value;
+  const ne = { id: dk + '-' + Date.now(), name: selectedLibShow.name, venue: selectedLibShow.venue, doorTime: selectedLibShow.doorTime, showTime: selectedLibShow.showTime, ticketStatus: 'none', cardSize: selectedLibShow.cardSize||'medium', description: selectedLibShow.description||'', notes:'' };
+  if (!scheduleData[dk].events[sk]) scheduleData[dk].events[sk] = [];
+  scheduleData[dk].events[sk].push(ne);
+  closeLibModal();
+  if (currentTab === 'nighttime') renderNighttimeLib();
+  else if (currentTab === 'jazzfest') renderJazzFestLib();
+  savePlannerData();
+  showToast(ne.name + ' added!');
+}
+
+async function removeFromPlanner(name) {
+  if (currentPlannerRole === 'viewer') { showToast('View-only access'); return; }
+  const ok = await showConfirm('Remove "' + name + '" from your planner?', 'Remove Show');
+  if (!ok) return;
+  Object.keys(scheduleData).forEach(dk => {
+    Object.keys(scheduleData[dk].events).forEach(sk => {
+      const arr = scheduleData[dk].events[sk];
+      const i = arr.findIndex(e => e.name.toLowerCase() === name.toLowerCase());
+      if (i !== -1) arr.splice(i, 1);
+    });
+  });
+  if (currentTab === 'nighttime') renderNighttimeLib();
+  else if (currentTab === 'jazzfest') renderJazzFestLib();
+  else renderSchedule();
+  savePlannerData();
+  showToast('Show removed');
+}
+
+function renderNighttimeLib() {
+  const c = document.getElementById('nighttime-container');
+  const fc = document.getElementById('nt-filters');
+  if (fc.children.length === 0) {
+    ['all','wednesday','thursday','friday','saturday','sunday'].forEach(day => {
+      const btn = document.createElement('button');
+      btn.className = 'filter-btn' + (day==='all'?' active':'');
+      btn.textContent = day==='all'?'All Days':day.charAt(0).toUpperCase()+day.slice(1);
+      btn.onclick = () => { document.querySelectorAll('#nt-filters .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); ntFilter=day; renderNighttimeLib(); };
+      fc.appendChild(btn);
+    });
+  }
+  c.innerHTML = '';
+  let found = false;
+  Object.keys(nighttimeLibrary).forEach(vn => {
+    const venue = nighttimeLibrary[vn];
+    const shows = venue.shows.filter(s => {
+      const md = ntFilter==='all'||s.day===ntFilter;
+      const ms = !ntSearch||s.name.toLowerCase().includes(ntSearch)||vn.toLowerCase().includes(ntSearch)||(s.notes&&s.notes.toLowerCase().includes(ntSearch));
+      return md && ms;
+    });
+    if (!shows.length) return;
+    found = true;
+    const sec = document.createElement('div');
+    sec.className = 'venue-sec';
+    const sv = encodeURIComponent(vn);
+    let html = '<div class="venue-hdr"><div class="venue-name">' + vn + '</div><div class="venue-addr">' + venue.address + '</div></div><div class="shows-grid">';
+    shows.forEach((show, idx) => {
+      const inp = isInPlanner(show.name);
+      const sn = encodeURIComponent(show.name);
+      let ti = '';
+      if (show.doorTime) ti += '<div class="sdr">🚪 Doors: ' + show.doorTime + '</div>';
+      if (show.showTime) ti += '<div class="sdr">🕐 Show: ' + show.showTime + '</div>';
+      html += '<div class="show-card' + (inp?' in-planner':'') + '" data-venue="' + sv + '" data-idx="' + idx + '" data-name="' + sn + '" data-inplanner="' + inp + '" onclick="handleNTCardClick(this,event)">' +
+        '<div class="show-hdr"><div class="show-name">' + show.name + '</div><button class="add-btn' + (inp?' added':'') + '" data-venue="' + sv + '" data-idx="' + idx + '" data-name="' + sn + '" data-inplanner="' + inp + '" onclick="event.stopPropagation();handleNTAddClick(this)">' + (inp?'✓':'+') + '</button></div>' +
+        ti + (show.notes?'<div class="snotes">'+show.notes+'</div>':'') +
+        '<span class="sday">' + show.day + '</span></div>';
+    });
+    html += '</div>';
+    sec.innerHTML = html;
+    c.appendChild(sec);
+  });
+  if (!found) c.innerHTML = '<div class="no-results">No shows found.</div>';
+}
+
+function renderJazzFestLib() {
+  const c = document.getElementById('jazzfest-container');
+  const fc = document.getElementById('jf-filters');
+  if (fc.children.length === 0) {
+    ['all','thursday','friday','saturday','sunday'].forEach(day => {
+      const btn = document.createElement('button');
+      btn.className = 'filter-btn' + (day==='all'?' active':'');
+      btn.textContent = day==='all'?'All Days':day.charAt(0).toUpperCase()+day.slice(1);
+      btn.onclick = () => { document.querySelectorAll('#jf-filters .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); jfFilter=day; renderJazzFestLib(); };
+      fc.appendChild(btn);
+    });
+  }
+  c.innerHTML = '';
+  let found = false;
+  const colors = { tier1:'var(--golden)', tier2:'var(--warm)', tier3:'var(--text)' };
+  Object.keys(jazzFestLibrary).forEach(dn => {
+    const dd = jazzFestLibrary[dn];
+    if (jfFilter !== 'all' && dd.dayKey !== jfFilter) return;
+    const artists = dd.artists.filter(a => !jfSearch||a.name.toLowerCase().includes(jfSearch));
+    if (!artists.length) return;
+    found = true;
+    const sec = document.createElement('div');
+    sec.className = 'venue-sec';
+    let html = '<div class="venue-hdr"><div class="venue-name">' + dn + '</div></div><div class="shows-grid">';
+    artists.forEach(a => {
+      const inp = isInPlanner(a.name);
+      const sn = encodeURIComponent(a.name);
+      html += '<div class="show-card' + (inp?' in-planner':'') + '" data-name="' + sn + '" data-day="' + dd.dayKey + '" data-tier="' + a.tier + '" data-inplanner="' + inp + '" onclick="handleJFCardClick(this,event)">' +
+        '<div class="show-hdr"><div class="show-name" style="color:' + (colors[a.tier]||'var(--text)') + '">' + a.name + '</div><button class="add-btn' + (inp?' added':'') + '" data-name="' + sn + '" data-day="' + dd.dayKey + '" data-tier="' + a.tier + '" data-inplanner="' + inp + '" onclick="event.stopPropagation();handleJFAddClick(this)">' + (inp?'✓':'+') + '</button></div></div>';
+    });
+    html += '</div>';
+    sec.innerHTML = html;
+    c.appendChild(sec);
+  });
+  if (!found) c.innerHTML = '<div class="no-results">No artists found.</div>';
+}
+
+// ============ UTILITIES ============
+function showConfirm(message, title='Confirm') {
+  return new Promise(resolve => {
+    const modal = document.getElementById('confirm-modal');
+    document.getElementById('conf-title').textContent = title;
+    document.getElementById('conf-msg').textContent = message;
+    modal.classList.add('active');
+    const yes = document.getElementById('conf-yes'), no = document.getElementById('conf-no');
+    const handleY = () => { modal.classList.remove('active'); yes.removeEventListener('click',handleY); no.removeEventListener('click',handleN); resolve(true); };
+    const handleN = () => { modal.classList.remove('active'); yes.removeEventListener('click',handleY); no.removeEventListener('click',handleN); resolve(false); };
+    yes.addEventListener('click', handleY);
+    no.addEventListener('click', handleN);
+  });
+}
+
+let toastTimeout;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// Search bars
+document.getElementById('nt-search').addEventListener('input', e => {
+  ntSearch = e.target.value.toLowerCase();
+  document.getElementById('nt-clear').style.display = ntSearch ? 'flex' : 'none';
+  renderNighttimeLib();
+});
+document.getElementById('nt-clear').addEventListener('click', () => {
+  document.getElementById('nt-search').value = '';
+  ntSearch = '';
+  document.getElementById('nt-clear').style.display = 'none';
+  renderNighttimeLib();
+});
+document.getElementById('jf-search').addEventListener('input', e => {
+  jfSearch = e.target.value.toLowerCase();
+  document.getElementById('jf-clear').style.display = jfSearch ? 'flex' : 'none';
+  renderJazzFestLib();
+});
+document.getElementById('jf-clear').addEventListener('click', () => {
+  document.getElementById('jf-search').value = '';
+  jfSearch = '';
+  document.getElementById('jf-clear').style.display = 'none';
+  renderJazzFestLib();
+});
+
+// Close modals on backdrop click
+['edit-modal','detail-modal','lib-modal','confirm-modal','np-modal','share-modal','profile-modal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => { if (e.target.id === id) document.getElementById(id).classList.remove('active'); });
+});
+
+// ============ NIGHTTIME LIBRARY DATA ============
+const nighttimeLibrary = {
+  "Saenger Theatre": { address: "111 Canal St.", shows: [
+    { name: "Wilco", day: "thursday", doorTime: "", showTime: "9:00pm", notes: "'An Evening With Wilco' - two full sets. Tickets from $60" },
+    { name: "Wilco", day: "friday", doorTime: "", showTime: "9:00pm", notes: "'An Evening With Wilco' - two full sets. Tickets from $60" }
+  ]},
+  "Tipitina's": { address: "501 Napoleon Ave.", shows: [
+    { name: "The Iceman Special", day: "thursday", doorTime: "1:00am", showTime: "2:00am", notes: "Tickets $34" },
+    { name: "Galactic", day: "friday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $70" },
+    { name: "Neal Francis (Late Night)", day: "friday", doorTime: "1:00am", showTime: "2:00am", notes: "Tickets $58" },
+    { name: "Neal Francis (Evening)", day: "saturday", doorTime: "8:00pm", showTime: "9:00pm", notes: "w/ The Breaks. Tickets $58" },
+    { name: "FiyaPowa", day: "saturday", doorTime: "1:00am", showTime: "2:00am", notes: "Tickets $42" },
+    { name: "Dumpstaphunk", day: "sunday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $47" }
+  ]},
+  "Fillmore New Orleans": { address: "1700 Tchoupitoulas St.", shows: [
+    { name: "Joe Russo's Almost Dead (JRAD)", day: "saturday", doorTime: "8:00pm", showTime: "9:00pm", notes: "One night only. Joe Russo, Marco Benevento, Dave Dreiwitz, Tom Hamilton, Scott Metzger" }
+  ]},
+  "Civic Theatre": { address: "510 O'Keefe Ave.", shows: [
+    { name: "Anders Osborne Birthday Bash", day: "saturday", doorTime: "8:00pm", showTime: "9:00pm", notes: "With Dave Malone, Jackie Greene, Lindsay Lou, Rebirth Brass Band" }
+  ]},
+  "Orpheum Theatre": { address: "129 Roosevelt Way", shows: [
+    { name: "The Marcus King Band", day: "saturday", doorTime: "", showTime: "9:00pm", notes: "Waltz Across Texas" }
+  ]},
+  "The Joy Theatre": { address: "1200 Canal St.", shows: [
+    { name: "Grahame Lesh & Friends", day: "wednesday", doorTime: "", showTime: "7:30pm", notes: "ft. Ivan Neville, Jake Brownstein, Cory Henry" }
+  ]},
+  "Chickie Wah Wah": { address: "2828 Canal St.", shows: [
+    { name: "Magoo", day: "thursday", doorTime: "12:30am", showTime: "1:00am", notes: "Tickets $34" }
+  ]},
+  "Howlin' Wolf": { address: "907 S. Peters St.", shows: [
+    { name: "Karl Denson's Tiny Universe", day: "thursday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $30" },
+    { name: "Dirty Dozen Brass Band", day: "friday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $35" },
+    { name: "Stanton Moore Trio", day: "saturday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $35" },
+    { name: "Trombone Shorty All-Stars", day: "sunday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $45" }
+  ]},
+  "Rock 'n' Bowl": { address: "3000 S. Carrollton Ave.", shows: [
+    { name: "Tab Benoit", day: "thursday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $25" },
+    { name: "Bobby Rush", day: "friday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $28" },
+    { name: "Walter \"Wolfman\" Washington", day: "saturday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $22" },
+    { name: "Lil Nate & the Zydeco Big Timers", day: "sunday", doorTime: "8:00pm", showTime: "9:00pm", notes: "Tickets $20" }
+  ]},
+  "Maple Leaf Bar": { address: "8316 Oak St.", shows: [
+    { name: "Rebirth Brass Band", day: "thursday", doorTime: "10:00pm", showTime: "11:00pm", notes: "Tickets $15 - legendary Tuesday residency moved for Jazz Fest" },
+    { name: "Papa Grows Funk", day: "friday", doorTime: "9:00pm", showTime: "10:00pm", notes: "Tickets $15" },
+    { name: "John Cleary & the Absolute Monster Gentlemen", day: "saturday", doorTime: "9:00pm", showTime: "10:00pm", notes: "Tickets $15" }
+  ]},
+  "Preservation Hall": { address: "726 St. Peter St.", shows: [
+    { name: "Preservation Hall Jazz Band", day: "thursday", doorTime: "", showTime: "8:00pm", notes: "Late show $30" },
+    { name: "Preservation Hall Jazz Band", day: "friday", doorTime: "", showTime: "8:00pm", notes: "Late show $30" },
+    { name: "Preservation Hall Jazz Band", day: "saturday", doorTime: "", showTime: "8:00pm", notes: "Late show $30" },
+    { name: "Preservation Hall Jazz Band", day: "sunday", doorTime: "", showTime: "8:00pm", notes: "Late show $30" }
+  ]},
+  "Frenchmen Street (Live)": { address: "Frenchmen St., Marigny", shows: [
+    { name: "Spotted Cat Late Night", day: "thursday", doorTime: "10:00pm", showTime: "11:00pm", notes: "No cover - multiple bands rotating" },
+    { name: "Spotted Cat Late Night", day: "friday", doorTime: "10:00pm", showTime: "11:00pm", notes: "No cover - multiple bands rotating" },
+    { name: "Spotted Cat Late Night", day: "saturday", doorTime: "10:00pm", showTime: "11:00pm", notes: "No cover - multiple bands rotating" },
+    { name: "Spotted Cat Late Night", day: "sunday", doorTime: "10:00pm", showTime: "11:00pm", notes: "No cover - multiple bands rotating" }
+  ]}
+};
+
+// ============ JAZZ FEST LIBRARY DATA ============
+const jazzFestLibrary = {
+  "Thursday, April 30": { dayKey: "thursday", artists: [
+    { name: "Widespread Panic", tier: "tier1" },
+    { name: "Lake Street Dive", tier: "tier2" },
+    { name: "Lettuce", tier: "tier2" },
+    { name: "Robert Plant", tier: "tier1" },
+    { name: "Preservation Hall Jazz Band", tier: "tier2" },
+    { name: "Tank and the Bangas", tier: "tier2" },
+    { name: "Galactic", tier: "tier2" },
+    { name: "Irma Thomas", tier: "tier2" },
+    { name: "Los Lobos", tier: "tier2" },
+    { name: "Zigaboo Modeliste", tier: "tier3" }
+  ]},
+  "Friday, May 1": { dayKey: "friday", artists: [
+    { name: "The Black Keys", tier: "tier1" },
+    { name: "Ziggy Marley", tier: "tier1" },
+    { name: "Rickie Lee Jones", tier: "tier2" },
+    { name: "Lainey Wilson", tier: "tier1" },
+    { name: "California Honeydrops", tier: "tier2" },
+    { name: "Tuba Skinny", tier: "tier2" },
+    { name: "Anders Osborne", tier: "tier2" },
+    { name: "Bonerama", tier: "tier3" },
+    { name: "Ivan Neville's Dumpstaphunk", tier: "tier2" }
+  ]},
+  "Saturday, May 2": { dayKey: "saturday", artists: [
+    { name: "Eagles", tier: "tier1" },
+    { name: "Alabama Shakes", tier: "tier1" },
+    { name: "T-Pain", tier: "tier1" },
+    { name: "Dianne Reeves", tier: "tier2" },
+    { name: "Dumpstaphunk", tier: "tier2" },
+    { name: "Little Feat", tier: "tier2" },
+    { name: "Sierra Hull", tier: "tier2" },
+    { name: "Cimafunk", tier: "tier2" },
+    { name: "Big Freedia", tier: "tier2" },
+    { name: "Theresa Andersson", tier: "tier3" }
+  ]},
+  "Sunday, May 3": { dayKey: "sunday", artists: [
+    { name: "Tedeschi Trucks Band", tier: "tier1" },
+    { name: "Teddy Swims", tier: "tier1" },
+    { name: "Earth, Wind & Fire", tier: "tier1" },
+    { name: "Herbie Hancock", tier: "tier1" },
+    { name: "Trombone Shorty & Orleans Avenue", tier: "tier2" },
+    { name: "Rebirth Brass Band", tier: "tier2" },
+    { name: "Bon Jovi", tier: "tier1" },
+    { name: "The Revivalists", tier: "tier2" },
+    { name: "Cyril Neville", tier: "tier3" }
+  ]}
+};
+</script>
+</body>
+</html>
