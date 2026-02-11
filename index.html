@@ -535,6 +535,9 @@ let editingEvent = null, isAddMode = false, selectedLibShow = null, detailEvent 
 let avatarFile = null, profAvatarFile = null;
 
 // ============ AUTH STATE ============
+// Handle mobile Google redirect on page load
+handleRedirectResult();
+
 auth.onAuthStateChanged(async user => {
   document.getElementById('loading-screen').style.display = 'none';
   if (user) {
@@ -596,21 +599,38 @@ async function signUpEmail() {
   } catch(e) { showAuthErr(e.message.replace('Firebase: ','')); }
 }
 
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
 async function signInGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
   try {
-    const result = await auth.signInWithPopup(provider);
-    const user = result.user;
-    const doc = await db.collection('users').doc(user.uid).get();
-    if (!doc.exists) {
-      await saveUserProfile(user.uid, {
-        displayName: user.displayName || 'User',
-        email: user.email,
-        photoURL: user.photoURL,
-        initials: getInitials(user.displayName || user.email)
-      });
+    if (isMobile) {
+      await auth.signInWithRedirect(provider);
+      // page will reload — result handled in handleRedirectResult()
+    } else {
+      const result = await auth.signInWithPopup(provider);
+      await ensureUserProfile(result.user);
     }
   } catch(e) { showAuthErr(e.message.replace('Firebase: ','')); }
+}
+
+async function handleRedirectResult() {
+  try {
+    const result = await auth.getRedirectResult();
+    if (result && result.user) await ensureUserProfile(result.user);
+  } catch(e) { showAuthErr(e.message.replace('Firebase: ','')); }
+}
+
+async function ensureUserProfile(user) {
+  const doc = await db.collection('users').doc(user.uid).get();
+  if (!doc.exists) {
+    await saveUserProfile(user.uid, {
+      displayName: user.displayName || 'User',
+      email: user.email,
+      photoURL: user.photoURL,
+      initials: getInitials(user.displayName || user.email)
+    });
+  }
 }
 
 async function doSignOut() {
