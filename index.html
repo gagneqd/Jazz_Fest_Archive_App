@@ -148,7 +148,7 @@ body{font-family:'Nunito Sans',sans-serif;background:var(--grad);background-atta
 .sday{display:inline-block;background:rgba(27,154,170,0.2);color:var(--teal);padding:2px 7px;border-radius:4px;font-size:0.66rem;font-weight:800;text-transform:uppercase;margin-top:7px}
 
 /* FAB */
-.fab{position:fixed;bottom:78px;right:18px;width:50px;height:50px;background:linear-gradient(135deg,var(--warm),var(--golden));border:none;border-radius:15px;color:var(--dark);font-size:1.5rem;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(224,122,60,0.4);transition:all .2s;z-index:99}
+.fab{width:50px;height:50px;background:linear-gradient(135deg,var(--warm),var(--golden));border:none;border-radius:15px;color:var(--dark);font-size:1.5rem;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(224,122,60,0.4);transition:all .2s;flex-shrink:0}
 .fab:hover{transform:translateY(-2px) scale(1.05)}
 
 /* MODALS */
@@ -238,7 +238,7 @@ body{font-family:'Nunito Sans',sans-serif;background:var(--grad);background-atta
 
 
 /* FAB SPEED DIAL */
-#fab-wrap{position:fixed;bottom:78px;right:18px;z-index:99;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+#fab-wrap{position:fixed;bottom:78px;right:18px;z-index:99;display:none;flex-direction:column;align-items:flex-end;gap:10px}
 .fab-backdrop{display:none;position:fixed;inset:0;z-index:-1}
 .fab-backdrop.open{display:block}
 .fab-menu{display:flex;flex-direction:column;gap:9px;align-items:flex-end;opacity:0;pointer-events:none;transform:translateY(10px);transition:all .2s}
@@ -249,6 +249,10 @@ body{font-family:'Nunito Sans',sans-serif;background:var(--grad);background-atta
 
 
 .card-notes{font-size:0.74rem;color:var(--muted);margin-top:5px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+
+.btn-remove{background:transparent;border:1px solid rgba(220,60,60,0.4);color:rgba(220,100,100,0.85);border-radius:10px;padding:10px 18px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:'Nunito Sans',sans-serif;transition:all .2s}
+.btn-remove:hover{background:rgba(220,60,60,0.15);border-color:rgba(220,60,60,0.7);color:#ff7070}
 
 /* SCROLLBAR */
 ::-webkit-scrollbar{width:5px}
@@ -438,7 +442,7 @@ body{font-family:'Nunito Sans',sans-serif;background:var(--grad);background-atta
       <textarea class="notes-ta" id="det-notes" placeholder="Add personal notes..." onchange="saveDetNotes()"></textarea>
       <div style="font-size:0.72rem;color:var(--muted)">Notes auto-save when you click away</div>
     </div>
-    <div class="btn-row" style="margin-top:14px"><button class="btn-cancel" onclick="closeDetailModal()">Close</button></div>
+    <div class="btn-row" style="margin-top:14px"><button class="btn-cancel" onclick="closeDetailModal()">Close</button><button class="btn-remove" id="det-remove" onclick="removeFromDetail()">🗑 Remove</button></div>
   </div>
 </div>
 
@@ -1028,10 +1032,24 @@ function openDetailModal(dk, sk, idx) {
   });
   aw.style.display = hasAtt ? 'block' : 'none';
   document.getElementById('det-pencil').style.display = currentPlannerRole !== 'viewer' ? 'block' : 'none';
+  document.getElementById('det-remove').style.display = currentPlannerRole !== 'viewer' ? 'inline-flex' : 'none';
   document.getElementById('detail-modal').classList.add('active');
 }
 
 function closeDetailModal() { document.getElementById('detail-modal').classList.remove('active'); detailEvent = null; }
+
+async function removeFromDetail() {
+  if (!detailEvent || currentPlannerRole === 'viewer') return;
+  const evt = scheduleData[detailEvent.dk]?.events?.[detailEvent.sk]?.[detailEvent.idx];
+  if (!evt) return;
+  const ok = await showConfirm('Remove "' + evt.name + '" from your planner?', 'Remove Show');
+  if (!ok) return;
+  scheduleData[detailEvent.dk].events[detailEvent.sk].splice(detailEvent.idx, 1);
+  closeDetailModal();
+  renderSchedule();
+  savePlannerData();
+  showToast('Show removed');
+}
 
 function updateDetTickets() {
   if (!detailEvent || currentPlannerRole === 'viewer') return;
@@ -1150,9 +1168,22 @@ async function deleteCurrentEvent() {
 
 // ============ LIBRARY ============
 function isInPlanner(name) {
+  // legacy name-only check (used by Jazz Fest where no venue context needed for display)
   for (const dk in scheduleData)
     for (const sk in scheduleData[dk].events)
       if (scheduleData[dk].events[sk].find(e => e.name.toLowerCase() === name.toLowerCase())) return true;
+  return false;
+}
+function isShowInPlanner(name, venue, day) {
+  // exact match by name+venue+day — prevents Wilco Thu and Wilco Fri linking
+  const n = name.toLowerCase(), v = (venue||'').toLowerCase(), d = (day||'').toLowerCase();
+  for (const dk in scheduleData)
+    for (const sk in scheduleData[dk].events)
+      if (scheduleData[dk].events[sk].find(e =>
+        e.name.toLowerCase() === n &&
+        (e.venue||'').toLowerCase().startsWith(v.split(' (')[0]) &&
+        dk === d
+      )) return true;
   return false;
 }
 
@@ -1160,15 +1191,19 @@ function handleNTCardClick(el, event) {
   if (event.target.classList.contains('add-btn')) return;
   const inp = el.dataset.inplanner === 'true';
   const name = decodeURIComponent(el.dataset.name);
-  if (inp) removeFromPlanner(name);
-  else openLibModal(decodeURIComponent(el.dataset.venue), parseInt(el.dataset.idx), 'nighttime');
+  const venue = decodeURIComponent(el.dataset.venue);
+  const day = decodeURIComponent(el.dataset.day || '');
+  if (inp) removeFromPlanner(name, venue, day);
+  else openLibModal(venue, parseInt(el.dataset.idx), 'nighttime');
 }
 
 function handleNTAddClick(btn) {
   const inp = btn.dataset.inplanner === 'true';
   const name = decodeURIComponent(btn.dataset.name);
-  if (inp) removeFromPlanner(name);
-  else openLibModal(decodeURIComponent(btn.dataset.venue), parseInt(btn.dataset.idx), 'nighttime');
+  const venue = decodeURIComponent(btn.dataset.venue);
+  const day = decodeURIComponent(btn.dataset.day || '');
+  if (inp) removeFromPlanner(name, venue, day);
+  else openLibModal(venue, parseInt(btn.dataset.idx), 'nighttime');
 }
 
 function handleJFCardClick(el, event) {
@@ -1223,14 +1258,21 @@ function confirmAddFromLib() {
   showToast(ne.name + ' added!');
 }
 
-async function removeFromPlanner(name) {
+async function removeFromPlanner(name, venue, day) {
   if (currentPlannerRole === 'viewer') { showToast('View-only access'); return; }
   const ok = await showConfirm('Remove "' + name + '" from your planner?', 'Remove Show');
   if (!ok) return;
+  const n = name.toLowerCase();
+  const v = venue ? venue.toLowerCase().split(' (')[0] : null;
+  const d = day || null;
   Object.keys(scheduleData).forEach(dk => {
     Object.keys(scheduleData[dk].events).forEach(sk => {
       const arr = scheduleData[dk].events[sk];
-      const i = arr.findIndex(e => e.name.toLowerCase() === name.toLowerCase());
+      const i = arr.findIndex(e => {
+        if (e.name.toLowerCase() !== n) return false;
+        if (v && d) return (e.venue||'').toLowerCase().startsWith(v) && dk === d;
+        return true; // fallback: name-only (Jazz Fest shows)
+      });
       if (i !== -1) arr.splice(i, 1);
     });
   });
@@ -1269,13 +1311,14 @@ function renderNighttimeLib() {
     const sv = encodeURIComponent(vn);
     let html = '<div class="venue-hdr"><div class="venue-name">' + vn + '</div><div class="venue-addr">' + venue.address + '</div></div><div class="shows-grid">';
     shows.forEach((show, idx) => {
-      const inp = isInPlanner(show.name);
+      const inp = isShowInPlanner(show.name, vn, show.day);
       const sn = encodeURIComponent(show.name);
+      const sd = encodeURIComponent(show.day);
       let ti = '';
       if (show.doorTime) ti += '<div class="sdr">🚪 Doors: ' + show.doorTime + '</div>';
       if (show.showTime) ti += '<div class="sdr">🕐 Show: ' + show.showTime + '</div>';
-      html += '<div class="show-card' + (inp?' in-planner':'') + '" data-venue="' + sv + '" data-idx="' + idx + '" data-name="' + sn + '" data-inplanner="' + inp + '" onclick="handleNTCardClick(this,event)">' +
-        '<div class="show-hdr"><div class="show-name">' + show.name + '</div><button class="add-btn' + (inp?' added':'') + '" data-venue="' + sv + '" data-idx="' + idx + '" data-name="' + sn + '" data-inplanner="' + inp + '" onclick="event.stopPropagation();handleNTAddClick(this)">' + (inp?'✓':'+') + '</button></div>' +
+      html += '<div class="show-card' + (inp?' in-planner':'') + '" data-venue="' + sv + '" data-idx="' + idx + '" data-name="' + sn + '" data-day="' + sd + '" data-inplanner="' + inp + '" onclick="handleNTCardClick(this,event)">' +
+        '<div class="show-hdr"><div class="show-name">' + show.name + '</div><button class="add-btn' + (inp?' added':'') + '" data-venue="' + sv + '" data-idx="' + idx + '" data-name="' + sn + '" data-day="' + sd + '" data-inplanner="' + inp + '" onclick="event.stopPropagation();handleNTAddClick(this)">' + (inp?'✓':'+') + '</button></div>' +
         ti + (show.notes?'<div class="snotes">'+show.notes+'</div>':'') +
         '<span class="sday">' + show.day + '</span></div>';
     });
@@ -1395,7 +1438,6 @@ document.getElementById('jf-clear').addEventListener('click', () => {
 // ============ NIGHTTIME LIBRARY DATA ============
 const nighttimeLibrary = {
   "Saenger Theatre": { address: "111 Canal St.", shows: [
-    { name: "Wilco", day: "wednesday", doorTime: "", showTime: "9:00pm", notes: "'An Evening With Wilco' - two full sets", ticketUrl: "https://us.atgtickets.com/events/wilco/saenger-theatre/" },
     { name: "Wilco", day: "thursday", doorTime: "", showTime: "9:00pm", notes: "'An Evening With Wilco' - two full sets", ticketUrl: "https://us.atgtickets.com/events/wilco/saenger-theatre/" },
     { name: "Wilco", day: "friday", doorTime: "", showTime: "9:00pm", notes: "'An Evening With Wilco' - two full sets", ticketUrl: "https://us.atgtickets.com/events/wilco/saenger-theatre/" },
     { name: "The Meters", day: "saturday", doorTime: "", showTime: "8:00pm", notes: "SOLD OUT — Leo Nocentelli, George Porter Jr., Zigaboo Modeliste, Cyril Neville, Ivan Neville", ticketUrl: "https://us.atgtickets.com/events/the-meters/saenger-theatre/" }
